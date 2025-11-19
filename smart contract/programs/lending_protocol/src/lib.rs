@@ -94,7 +94,7 @@ pub mod lending_protocol {
             computation_offset, 
             args, 
             None, 
-            vec![HealthCheckCallback::callback_ix(&[])], 
+            vec![CheckHealthFactorCallback::callback_ix(&[])], 
             1
         )?;
         
@@ -170,7 +170,7 @@ pub mod lending_protocol {
             computation_offset, 
             args, 
             None, 
-            vec![LiquidationCallback::callback_ix(&[])], 
+            vec![CheckLiquidationCallback::callback_ix(&[])], 
             1
         )?;
         
@@ -195,6 +195,282 @@ pub mod lending_protocol {
         
         Ok(())
     }
+}
+
+// Account Structs
+
+#[init_computation_definition_accounts("check_health_factor", payer)]
+#[derive(Accounts)]
+pub struct InitHealthCheckCompDef<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        mut,
+        address = derive_mxe_pda!()
+    )]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+    #[account(mut)]
+    /// CHECK: comp_def_account, checked by arcium program.
+    /// Can't check it here as it's not initialized yet.
+    pub comp_def_account: UncheckedAccount<'info>,
+    pub arcium_program: Program<'info, Arcium>,
+    pub system_program: Program<'info, System>,
+}
+
+#[init_computation_definition_accounts("check_liquidation", payer)]
+#[derive(Accounts)]
+pub struct InitLiquidationCompDef<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        mut,
+        address = derive_mxe_pda!()
+    )]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+    #[account(mut)]
+    /// CHECK: comp_def_account, checked by arcium program.
+    /// Can't check it here as it's not initialized yet.
+    pub comp_def_account: UncheckedAccount<'info>,
+    pub arcium_program: Program<'info, Arcium>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeUser<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(
+        init,
+        payer = owner,
+        space = 8 + UserAccount::INIT_SPACE,
+        seeds = [b"user", owner.key().as_ref()],
+        bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct DepositCollateral<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"user", owner.key().as_ref()],
+        bump = user_account.bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    /// CHECK: This is the vault account that holds deposited funds
+    pub vault: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[queue_computation_accounts("check_health_factor", payer)]
+#[derive(Accounts)]
+#[instruction(computation_offset: u64)]
+pub struct Borrow<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"user", payer.key().as_ref()],
+        bump = user_account.bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(
+        init_if_needed,
+        space = 9,
+        payer = payer,
+        seeds = [&SIGN_PDA_SEED],
+        bump,
+        address = derive_sign_pda!(),
+    )]
+    pub sign_pda_account: Account<'info, SignerAccount>,
+    #[account(
+        address = derive_mxe_pda!()
+    )]
+    pub mxe_account: Account<'info, MXEAccount>,
+    #[account(
+        mut,
+        address = derive_mempool_pda!()
+    )]
+    /// CHECK: mempool_account, checked by the arcium program.
+    pub mempool_account: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        address = derive_execpool_pda!()
+    )]
+    /// CHECK: executing_pool, checked by the arcium program.
+    pub executing_pool: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        address = derive_comp_pda!(computation_offset)
+    )]
+    /// CHECK: computation_account, checked by the arcium program.
+    pub computation_account: UncheckedAccount<'info>,
+    #[account(
+        address = derive_comp_def_pda!(COMP_DEF_OFFSET_CHECK_HEALTH)
+    )]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(
+        mut,
+        address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet)
+    )]
+    pub cluster_account: Account<'info, Cluster>,
+    #[account(
+        mut,
+        address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS,
+    )]
+    pub pool_account: Account<'info, FeePool>,
+    #[account(
+        address = ARCIUM_CLOCK_ACCOUNT_ADDRESS
+    )]
+    pub clock_account: Account<'info, ClockAccount>,
+    pub system_program: Program<'info, System>,
+    pub arcium_program: Program<'info, Arcium>,
+}
+
+#[callback_accounts("check_health_factor")]
+#[derive(Accounts)]
+pub struct CheckHealthFactorCallback<'info> {
+    pub arcium_program: Program<'info, Arcium>,
+    #[account(
+        address = derive_comp_def_pda!(COMP_DEF_OFFSET_CHECK_HEALTH)
+    )]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+    /// CHECK: instructions_sysvar, checked by the account constraint
+    pub instructions_sysvar: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct Repay<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"user", owner.key().as_ref()],
+        bump = user_account.bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    /// CHECK: This is the vault account that holds deposited funds
+    pub vault: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[queue_computation_accounts("check_liquidation", payer)]
+#[derive(Accounts)]
+#[instruction(computation_offset: u64)]
+pub struct CheckLiquidation<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init_if_needed,
+        space = 9,
+        payer = payer,
+        seeds = [&SIGN_PDA_SEED],
+        bump,
+        address = derive_sign_pda!(),
+    )]
+    pub sign_pda_account: Account<'info, SignerAccount>,
+    #[account(
+        address = derive_mxe_pda!()
+    )]
+    pub mxe_account: Account<'info, MXEAccount>,
+    #[account(
+        mut,
+        address = derive_mempool_pda!()
+    )]
+    /// CHECK: mempool_account, checked by the arcium program.
+    pub mempool_account: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        address = derive_execpool_pda!()
+    )]
+    /// CHECK: executing_pool, checked by the arcium program.
+    pub executing_pool: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        address = derive_comp_pda!(computation_offset)
+    )]
+    /// CHECK: computation_account, checked by the arcium program.
+    pub computation_account: UncheckedAccount<'info>,
+    #[account(
+        address = derive_comp_def_pda!(COMP_DEF_OFFSET_LIQUIDATION)
+    )]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(
+        mut,
+        address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet)
+    )]
+    pub cluster_account: Account<'info, Cluster>,
+    #[account(
+        mut,
+        address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS,
+    )]
+    pub pool_account: Account<'info, FeePool>,
+    #[account(
+        address = ARCIUM_CLOCK_ACCOUNT_ADDRESS
+    )]
+    pub clock_account: Account<'info, ClockAccount>,
+    pub system_program: Program<'info, System>,
+    pub arcium_program: Program<'info, Arcium>,
+}
+
+#[callback_accounts("check_liquidation")]
+#[derive(Accounts)]
+pub struct CheckLiquidationCallback<'info> {
+    pub arcium_program: Program<'info, Arcium>,
+    #[account(
+        address = derive_comp_def_pda!(COMP_DEF_OFFSET_LIQUIDATION)
+    )]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+    /// CHECK: instructions_sysvar, checked by the account constraint
+    pub instructions_sysvar: AccountInfo<'info>,
+}
+
+// Data Accounts
+
+#[account]
+#[derive(InitSpace)]
+pub struct UserAccount {
+    pub owner: Pubkey,
+    pub deposited_collateral: u64,
+    pub borrowed_amount: u64,
+    pub pending_borrow: u64,
+    pub is_healthy: bool,
+    pub bump: u8,
+}
+
+// Events
+
+#[event]
+pub struct DepositEvent {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub total_collateral: u64,
+}
+
+#[event]
+pub struct HealthCheckEvent {
+    pub is_healthy_encrypted: [u8; 32],
+    pub nonce: [u8; 16],
+}
+
+#[event]
+pub struct RepayEvent {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub remaining_debt: u64,
+}
+
+#[event]
+pub struct LiquidationCheckEvent {
+    pub needs_liquidation_encrypted: [u8; 32],
+    pub nonce: [u8; 16],
 }
 
 #[error_code]
