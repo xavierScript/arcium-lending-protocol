@@ -8,11 +8,10 @@ import { DepositForm } from "../forms/DepositForm";
 import { BorrowForm } from "../forms/BorrowForm";
 import { RepayForm } from "../forms/RepayForm";
 import { WithdrawForm } from "../forms/WithdrawForm";
-import type { UserPosition, PoolStats } from '@/app/src/types';
 
 interface LendingTabProps {
-  userPosition: UserPosition | null;
-  poolStats: PoolStats | null;
+  userPosition: any;
+  poolStats: any;
   loading: boolean;
   showPrivateInfo: boolean;
   calculateHealthFactor: (collateral: number, borrowed: number) => number;

@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { DollarSign } from 'lucide-react';
 import { ActionButton } from "../common/ActionButton";
+import type { UserPosition } from '@/app/src/types';
 
 interface BorrowFormProps {
-  userPosition: any;
+  userPosition: UserPosition | null;
   loading: boolean;
   onBorrow: (amount: number) => Promise<void>;
   calculateHealthFactor: (collateral: number, borrowed: number) => number;

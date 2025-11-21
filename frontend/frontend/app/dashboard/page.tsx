@@ -6,7 +6,6 @@ import { Shield, Lock } from 'lucide-react';
 import usePrivateLending from '@/app/src/hooks/usePrivateLending';
 import { useNotification } from '@/app/src/contexts/NotificationContext';
 import { getExplorerUrl } from '@/lib/utils';
-import type { UserPosition, PoolStats } from '@/app/src/types';
 
 // Import components
 import { LendingTab } from '@/components/dApp-components/tabs/LendingTab';

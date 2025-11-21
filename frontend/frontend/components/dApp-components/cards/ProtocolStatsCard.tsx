@@ -1,10 +1,14 @@
 
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
-import type { PoolStats } from '@/app/src/types';
 
 interface ProtocolStatsCardProps {
-  poolStats: PoolStats | null;
+  poolStats: {
+    totalLiquidity: number;
+    totalBorrowed: number;
+    utilizationRate: number;
+    avgAPY: number;
+  } | null;
 }
 
 export const ProtocolStatsCard: React.FC<ProtocolStatsCardProps> = ({ poolStats }) => {

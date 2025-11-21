@@ -14,7 +14,30 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
-import type { UserPosition, PoolStats, TransactionResult } from '../types';
+
+// Types
+export interface UserPosition {
+  owner: PublicKey;
+  collateralAmount: number;
+  borrowedAmount: number;
+  healthFactor: number;
+  interestRate: number;
+  liquidationThreshold: number;
+  lastUpdate: Date;
+}
+
+export interface PoolStats {
+  totalLiquidity: number;
+  totalBorrowed: number;
+  utilizationRate: number;
+  avgAPY: number;
+}
+
+export interface TransactionResult {
+  success: boolean;
+  signature?: string;
+  error?: string;
+}
 
 export function usePrivateLending() {
   const { connection } = useConnection();
@@ -78,24 +101,24 @@ export function usePrivateLending() {
 
   // Fetch user position
   const fetchUserPosition = useCallback(async () => {
-    if (!wallet.publicKey) return;
+    if (!wallet.publicKey || !program) return;
 
     try {
       setLoading(true);
-      // const { positionPDA } = await getPositionPDA(wallet.publicKey);
+      const { positionPDA } = await getPositionPDA(wallet.publicKey);
 
-      // TODO: Uncomment when Anchor program IDL is loaded
-      // const positionAccount = await program.account.userPosition.fetch(positionPDA);
+      // Fetch position account
+      const positionAccount = await program.account.userPosition.fetch(positionPDA);
 
-      // Mock data for development (remove when program is deployed)
+      // Decrypt values here (with Arcium MPC in production)
       const position: UserPosition = {
-        owner: wallet.publicKey,
-        collateralAmount: 1000, // Mock: Decrypt encrypted collateral
-        borrowedAmount: 500,    // Mock: Decrypt encrypted borrowed
-        healthFactor: 1.5,      // Mock: Calculate from encrypted values
-        interestRate: 6.2,      // From pool
+        owner: positionAccount.owner,
+        collateralAmount: 0, // Decrypt encrypted collateral
+        borrowedAmount: 0,   // Decrypt encrypted borrowed
+        healthFactor: 0,     // Calculate from encrypted values
+        interestRate: 6.2,   // From pool
         liquidationThreshold: 75,
-        lastUpdate: new Date(),
+        lastUpdate: new Date(positionAccount.lastUpdate.toNumber() * 1000),
       };
 
       setUserPosition(position);
@@ -106,27 +129,27 @@ export function usePrivateLending() {
     } finally {
       setLoading(false);
     }
-  }, [wallet.publicKey]);
+  }, [wallet.publicKey, program, getPositionPDA]);
 
   // Fetch pool statistics
   const fetchPoolStats = useCallback(async () => {
-    // if (!program) return;
+    if (!program) return;
 
     try {
-      // const [poolPDA] = PublicKey.findProgramAddressSync(
-      //   [Buffer.from('pool'), POOL_AUTHORITY.toBuffer()],
-      //   PROGRAM_ID
-      // );
+      const [poolPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from('pool'), POOL_AUTHORITY.toBuffer()],
+        PROGRAM_ID
+      );
 
-      // TODO: Uncomment when Anchor program IDL is loaded
-      // const poolAccount = await program.account.lendingPool.fetch(poolPDA);
+      const poolAccount = await program.account.lendingPool.fetch(poolPDA);
 
-      // Mock data for development (remove when program is deployed)
       const stats: PoolStats = {
-        totalLiquidity: 50000,
-        totalBorrowed: 25000,
-        utilizationRate: 50,
-        avgAPY: 6.5,
+        totalLiquidity: poolAccount.totalLiquidity.toNumber() / 1e6, // Assuming 6 decimals
+        totalBorrowed: poolAccount.totalBorrowed.toNumber() / 1e6,
+        utilizationRate: poolAccount.totalLiquidity.toNumber() > 0
+          ? (poolAccount.totalBorrowed.toNumber() / poolAccount.totalLiquidity.toNumber()) * 100
+          : 0,
+        avgAPY: poolAccount.baseInterestRate / 100, // Convert basis points
       };
 
       setPoolStats(stats);

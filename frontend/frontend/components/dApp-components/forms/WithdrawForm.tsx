@@ -2,10 +2,9 @@
 import React, { useState } from 'react';
 import { DollarSign, AlertCircle } from 'lucide-react';
 import { ActionButton } from "../common/ActionButton";
-import type { UserPosition } from '@/app/src/types';
 
 interface WithdrawFormProps {
-  userPosition: UserPosition | null;
+  userPosition: any;
   loading: boolean;
   onWithdraw: (amount: number) => Promise<void>;
   calculateHealthFactor: (collateral: number, borrowed: number) => number;

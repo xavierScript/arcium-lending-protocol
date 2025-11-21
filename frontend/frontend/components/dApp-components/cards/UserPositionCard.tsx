@@ -1,10 +1,9 @@
 
 import React from 'react';
 import { Lock, AlertCircle } from 'lucide-react';
-import type { UserPosition } from '@/app/src/types';
 
 interface UserPositionCardProps {
-  userPosition: UserPosition | null;
+  userPosition: any;
   showPrivateInfo: boolean;
   getHealthFactorColor: (hf: number) => string;
   getHealthFactorBg: (hf: number) => string;
