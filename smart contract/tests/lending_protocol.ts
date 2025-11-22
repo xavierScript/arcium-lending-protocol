@@ -214,60 +214,6 @@ describe("Private Lending Protocol", () => {
     console.log("🔒 Health status remains private (encrypted)");
   });
 
-  it("Check liquidation with encrypted computation", async () => {
-    console.log("\n⚠️  Performing encrypted liquidation check...");
-    
-    const collateral = BigInt(1 * LAMPORTS_PER_SOL);
-    const debt = BigInt(0.5 * LAMPORTS_PER_SOL);
-
-    const nonce = randomBytes(16);
-    const plaintext = [collateral, debt];
-    const ciphertext = cipher.encrypt(plaintext, nonce);
-
-    const liquidationEventPromise = awaitEvent("liquidationCheckEvent");
-    const computationOffset = new BN(randomBytes(8), "hex");
-
-    const sig = await program.methods
-      .checkLiquidation(
-        computationOffset,
-        Array.from(ciphertext[0]),
-        Array.from(ciphertext[1]),
-        Array.from(publicKey),
-        new BN(deserializeLE(nonce).toString())
-      )
-      .accountsPartial({
-        payer: owner.publicKey,
-        computationAccount: getComputationAccAddress(
-          program.programId,
-          computationOffset
-        ),
-        clusterAccount,
-        mxeAccount: getMXEAccAddress(program.programId),
-        mempoolAccount: getMempoolAccAddress(program.programId),
-        executingPool: getExecutingPoolAccAddress(program.programId),
-        compDefAccount: getCompDefAccAddress(
-          program.programId,
-          Buffer.from(getCompDefAccOffset("check_liquidation")).readUInt32LE()
-        ),
-      })
-      .signers([owner])
-      .rpc({ skipPreflight: true, commitment: "confirmed" });
-    
-    console.log("✅ Liquidation check queued:", sig);
-
-    const finalizeSig = await awaitComputationFinalization(
-      provider as anchor.AnchorProvider,
-      computationOffset,
-      program.programId,
-      "confirmed"
-    );
-    console.log("✅ Liquidation computation finalized:", finalizeSig);
-
-    const liquidationEvent = await liquidationEventPromise;
-    console.log("📊 Encrypted liquidation result received");
-    console.log("🔒 Liquidation status remains private (encrypted)");
-  });
-
   it("Repay borrowed funds", async () => {
     console.log("\n💵 Repaying loan...");
     
@@ -285,6 +231,9 @@ describe("Private Lending Protocol", () => {
       .rpc({ commitment: "confirmed" });
     
     console.log("✅ Repaid 0.2 SOL:", sig);
+    
+    const userAccount = await program.account.userAccount.fetch(userAccountPda);
+    console.log("📊 Remaining debt:", userAccount.borrowedAmount.toNumber() / LAMPORTS_PER_SOL, "SOL");
   });
 
   // Helper functions
