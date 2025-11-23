@@ -1,401 +1,366 @@
-
-
-import { useState, useEffect, useCallback } from 'react';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { 
-  PublicKey, 
-  Transaction, 
-  SystemProgram,
-  LAMPORTS_PER_SOL 
-} from '@solana/web3.js';
-import { Program, AnchorProvider, web3, BN, Idl } from '@coral-xyz/anchor';
-import { 
-  TOKEN_PROGRAM_ID, 
-  getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
-} from '@solana/spl-token';
-import type { UserPosition, PoolStats, TransactionResult } from '../types';
+import { useState, useEffect, useCallback } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Program, AnchorProvider, BN, Idl } from "@coral-xyz/anchor";
+import type { UserPosition, TransactionResult, UserAccount } from "../types";
+import {
+  PROGRAM_ID,
+  ARCIUM_PROGRAM_ID,
+  ARCIUM_CLOCK_ACCOUNT,
+  ARCIUM_FEE_POOL_ACCOUNT,
+  LIQUIDATION_THRESHOLD,
+} from "@/lib/constants";
+import {
+  initializeEncryption,
+  encryptValues,
+  generateNonce,
+  nonceToU128,
+  getArciumAccounts,
+  getCompDefAccount,
+  getClusterAccount,
+  generateComputationOffset,
+  lamportsToSol,
+  solToLamports,
+  calculateHealthFactor,
+  EncryptionKeys,
+} from "@/lib/arcium";
+import idl from "@/components/idl/lending_protocol.json";
 
 export function usePrivateLending() {
   const { connection } = useConnection();
   const wallet = useWallet();
-  
+
   const [loading, setLoading] = useState(false);
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
-  const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
   const [program, setProgram] = useState<Program | null>(null);
+  const [encryptionKeys, setEncryptionKeys] = useState<EncryptionKeys | null>(
+    null
+  );
 
+  // Derive vault PDA
+  const getVaultPDA = useCallback(() => {
+    const [vaultPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault")],
+      PROGRAM_ID
+    );
+    return vaultPDA;
+  }, []);
 
-  // Program configuration
-  const PROGRAM_ID = new PublicKey(
-    process.env.NEXT_PUBLIC_PROGRAM_ID || '11111111111111111111111111111111'
-  );
-  
-  const POOL_AUTHORITY = new PublicKey(
-    process.env.NEXT_PUBLIC_POOL_AUTHORITY || '11111111111111111111111111111112'
-  );
-  
-  const USDC_MINT = new PublicKey(
-    process.env.NEXT_PUBLIC_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-  );
+  // Derive user account PDA
+  const getUserAccountPDA = useCallback((userPubkey: PublicKey) => {
+    const [userAccountPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("user"), userPubkey.toBuffer()],
+      PROGRAM_ID
+    );
+    return userAccountPDA;
+  }, []);
+
+  // Derive signer PDA
+  const getSignerPDA = useCallback(() => {
+    const [signerPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("SignerAccount")],
+      PROGRAM_ID
+    );
+    return signerPDA;
+  }, []);
 
   // Initialize Anchor program
   useEffect(() => {
     if (!wallet.publicKey) return;
 
-    try {
-      const provider = new AnchorProvider(
-        connection,
-        wallet as any,
-        { commitment: 'confirmed' }
-      );
+    const initProgram = async () => {
+      try {
+        const provider = new AnchorProvider(connection, wallet as any, {
+          commitment: "confirmed",
+        });
 
-      // Load your IDL here when available
-      // const idl = await Program.fetchIdl(PROGRAM_ID, provider);
-      // const program = new Program(idl, PROGRAM_ID, provider);
-      // setProgram(program);
-      
-      console.log('Anchor provider initialized');
-    } catch (error) {
-      console.error('Error initializing program:', error);
-    }
+        const program = new Program(idl as Idl, PROGRAM_ID, provider);
+        setProgram(program);
+
+        // Initialize encryption keys
+        const keys = await initializeEncryption(provider, PROGRAM_ID);
+        setEncryptionKeys(keys);
+
+        console.log("✅ Anchor program and encryption initialized");
+      } catch (error) {
+        console.error("Error initializing program:", error);
+      }
+    };
+
+    initProgram();
   }, [wallet.publicKey, connection]);
-
-  // Get PDAs
-  const getPositionPDA = useCallback(async (userPubkey: PublicKey) => {
-    const [poolPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('pool'), POOL_AUTHORITY.toBuffer()],
-      PROGRAM_ID
-    );
-
-    const [positionPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('position'), userPubkey.toBuffer(), poolPDA.toBuffer()],
-      PROGRAM_ID
-    );
-
-    return { poolPDA, positionPDA };
-  }, [PROGRAM_ID, POOL_AUTHORITY]);
 
   // Fetch user position
   const fetchUserPosition = useCallback(async () => {
-    if (!wallet.publicKey) return;
+    if (!wallet.publicKey || !program) return;
 
     try {
       setLoading(true);
-      // const { positionPDA } = await getPositionPDA(wallet.publicKey);
+      const userAccountPDA = getUserAccountPDA(wallet.publicKey);
 
-      // TODO: Uncomment when Anchor program IDL is loaded
-      // const positionAccount = await program.account.userPosition.fetch(positionPDA);
+      const userAccount = (await program.account.userAccount.fetch(
+        userAccountPDA
+      )) as UserAccount;
 
-      // Mock data for development (remove when program is deployed)
+      // Convert BN to numbers for UI
+      const collateral = lamportsToSol(
+        userAccount.depositedCollateral.toNumber()
+      );
+      const borrowed = lamportsToSol(userAccount.borrowedAmount.toNumber());
+      const pending = lamportsToSol(userAccount.pendingBorrow.toNumber());
+
+      const healthFactor = calculateHealthFactor(
+        BigInt(userAccount.depositedCollateral.toString()),
+        BigInt(userAccount.borrowedAmount.toString()),
+        LIQUIDATION_THRESHOLD
+      );
+
       const position: UserPosition = {
-        owner: wallet.publicKey,
-        collateralAmount: 1000, // Mock: Decrypt encrypted collateral
-        borrowedAmount: 500,    // Mock: Decrypt encrypted borrowed
-        healthFactor: 1.5,      // Mock: Calculate from encrypted values
-        interestRate: 6.2,      // From pool
-        liquidationThreshold: 75,
+        owner: userAccount.owner,
+        collateralAmount: collateral,
+        borrowedAmount: borrowed,
+        pendingBorrow: pending,
+        healthFactor,
+        isHealthy: userAccount.isHealthy,
+        liquidationThreshold: LIQUIDATION_THRESHOLD,
         lastUpdate: new Date(),
       };
 
       setUserPosition(position);
-    } catch (error) {
-      console.error('Error fetching position:', error);
-      // Position doesn't exist yet - that's okay
+    } catch (error: any) {
+      // Account doesn't exist yet
+      console.log("User account not initialized:", error.message);
       setUserPosition(null);
     } finally {
       setLoading(false);
     }
-  }, [wallet.publicKey]);
+  }, [wallet.publicKey, program, getUserAccountPDA]);
 
-  // Fetch pool statistics
-  const fetchPoolStats = useCallback(async () => {
-    // if (!program) return;
-
-    try {
-      // const [poolPDA] = PublicKey.findProgramAddressSync(
-      //   [Buffer.from('pool'), POOL_AUTHORITY.toBuffer()],
-      //   PROGRAM_ID
-      // );
-
-      // TODO: Uncomment when Anchor program IDL is loaded
-      // const poolAccount = await program.account.lendingPool.fetch(poolPDA);
-
-      // Mock data for development (remove when program is deployed)
-      const stats: PoolStats = {
-        totalLiquidity: 50000,
-        totalBorrowed: 25000,
-        utilizationRate: 50,
-        avgAPY: 6.5,
-      };
-
-      setPoolStats(stats);
-    } catch (error) {
-      console.error('Error fetching pool stats:', error);
-    }
-  }, [program, PROGRAM_ID, POOL_AUTHORITY]);
-
-  // Create position
-  const createPosition = useCallback(async (): Promise<TransactionResult> => {
-    if (!wallet.publicKey || !wallet.signTransaction || !program) {
-      return { success: false, error: 'Wallet not connected' };
+  // Initialize user account
+  const initializeUser = useCallback(async (): Promise<TransactionResult> => {
+    if (!wallet.publicKey || !program) {
+      return { success: false, error: "Wallet not connected" };
     }
 
     try {
       setLoading(true);
-      const { poolPDA, positionPDA } = await getPositionPDA(wallet.publicKey);
-
-      // Mock MPC program ID for now
-      const mpcProgramId = web3.Keypair.generate().publicKey;
+      const userAccountPDA = getUserAccountPDA(wallet.publicKey);
 
       const tx = await program.methods
-        .createPosition(mpcProgramId)
+        .initializeUser()
         .accounts({
-          position: positionPDA,
-          pool: poolPDA,
-          user: wallet.publicKey,
-          mpcProgram: mpcProgramId,
+          owner: wallet.publicKey,
+          userAccount: userAccountPDA,
           systemProgram: SystemProgram.programId,
         })
-        .rpc();
+        .rpc({ commitment: "confirmed" });
 
       await fetchUserPosition();
-      
+
       return { success: true, signature: tx };
     } catch (error: any) {
-      console.error('Error creating position:', error);
+      console.error("Error initializing user:", error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
-  }, [wallet, program, getPositionPDA, fetchUserPosition]);
+  }, [wallet.publicKey, program, getUserAccountPDA, fetchUserPosition]);
 
   // Deposit collateral
-  const depositCollateral = useCallback(async (
-    amount: number
-  ): Promise<TransactionResult> => {
-    if (!wallet.publicKey || !wallet.signTransaction || !program) {
-      return { success: false, error: 'Wallet not connected' };
-    }
+  const depositCollateral = useCallback(
+    async (amount: number): Promise<TransactionResult> => {
+      if (!wallet.publicKey || !program) {
+        return { success: false, error: "Wallet not connected" };
+      }
 
-    try {
-      setLoading(true);
-      const { poolPDA, positionPDA } = await getPositionPDA(wallet.publicKey);
+      try {
+        setLoading(true);
+        const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+        const vaultPDA = getVaultPDA();
 
-      // Get token accounts
-      const userTokenAccount = await getAssociatedTokenAddress(
-        USDC_MINT,
-        wallet.publicKey
-      );
+        // Convert SOL to lamports
+        const amountLamports = new BN(solToLamports(amount).toString());
 
-      const poolVault = await getAssociatedTokenAddress(
-        USDC_MINT,
-        poolPDA,
-        true
-      );
+        const tx = await program.methods
+          .depositCollateral(amountLamports)
+          .accounts({
+            owner: wallet.publicKey,
+            userAccount: userAccountPDA,
+            vault: vaultPDA,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc({ commitment: "confirmed" });
 
-      // Convert amount to lamports (assuming 6 decimals for USDC)
-      const amountLamports = new BN(amount * 1e6);
+        await fetchUserPosition();
 
-      // Mock encrypted amount (in production, encrypt with Arcium MPC)
-      const encryptedAmount = Buffer.from('encrypted_data_here');
+        return { success: true, signature: tx };
+      } catch (error: any) {
+        console.error("Error depositing collateral:", error);
+        return { success: false, error: error.message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      wallet.publicKey,
+      program,
+      getUserAccountPDA,
+      getVaultPDA,
+      fetchUserPosition,
+    ]
+  );
 
-      const tx = await program.methods
-        .depositCollateral(amountLamports, encryptedAmount)
-        .accounts({
-          position: positionPDA,
-          pool: poolPDA,
-          poolVault,
-          userTokenAccount,
-          user: wallet.publicKey,
-          mpcProgram: web3.Keypair.generate().publicKey, // Mock MPC
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .rpc();
+  // Borrow funds with encrypted health check
+  const borrow = useCallback(
+    async (amount: number): Promise<TransactionResult> => {
+      if (!wallet.publicKey || !program || !encryptionKeys || !userPosition) {
+        return {
+          success: false,
+          error: "Wallet not connected or encryption not initialized",
+        };
+      }
 
-      await fetchUserPosition();
-      await fetchPoolStats();
-      
-      return { success: true, signature: tx };
-    } catch (error: any) {
-      console.error('Error depositing collateral:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [wallet, program, getPositionPDA, fetchUserPosition, fetchPoolStats, USDC_MINT]);
+      try {
+        setLoading(true);
+        const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+        const signerPDA = getSignerPDA();
 
-  // Borrow funds
-  const borrow = useCallback(async (
-    amount: number
-  ): Promise<TransactionResult> => {
-    if (!wallet.publicKey || !wallet.signTransaction || !program) {
-      return { success: false, error: 'Wallet not connected' };
-    }
+        // Convert to lamports
+        const borrowAmountLamports = solToLamports(amount);
+        const collateralLamports = solToLamports(userPosition.collateralAmount);
+        const totalBorrowLamports =
+          solToLamports(userPosition.borrowedAmount) + borrowAmountLamports;
 
-    try {
-      setLoading(true);
-      const { poolPDA, positionPDA } = await getPositionPDA(wallet.publicKey);
+        // Encrypt values
+        const nonce = generateNonce();
+        const [encryptedCollateral, encryptedBorrow] = encryptValues(
+          encryptionKeys.cipher,
+          collateralLamports,
+          totalBorrowLamports,
+          nonce
+        );
 
-      const userTokenAccount = await getAssociatedTokenAddress(
-        USDC_MINT,
-        wallet.publicKey
-      );
+        // Generate computation offset
+        const computationOffset = generateComputationOffset();
 
-      const poolVault = await getAssociatedTokenAddress(
-        USDC_MINT,
-        poolPDA,
-        true
-      );
+        // Get Arcium accounts
+        const arciumAccounts = getArciumAccounts(PROGRAM_ID, computationOffset);
+        const compDefAccount = getCompDefAccount(
+          PROGRAM_ID,
+          "check_health_factor"
+        );
+        const clusterAccount = getClusterAccount();
 
-      const amountLamports = new BN(amount * 1e6);
-      const encryptedBorrowData = Buffer.from('encrypted_borrow_data');
+        const tx = await program.methods
+          .borrow(
+            new BN(computationOffset.toString()),
+            new BN(borrowAmountLamports.toString()),
+            Array.from(encryptedCollateral),
+            Array.from(encryptedBorrow),
+            Array.from(encryptionKeys.publicKey),
+            new BN(nonceToU128(nonce).toString())
+          )
+          .accounts({
+            payer: wallet.publicKey,
+            userAccount: userAccountPDA,
+            signPdaAccount: signerPDA,
+            mxeAccount: arciumAccounts.mxeAccount,
+            mempoolAccount: arciumAccounts.mempoolAccount,
+            executingPool: arciumAccounts.executingPool,
+            computationAccount: arciumAccounts.computationAccount,
+            compDefAccount,
+            clusterAccount,
+            poolAccount: ARCIUM_FEE_POOL_ACCOUNT,
+            clockAccount: ARCIUM_CLOCK_ACCOUNT,
+            systemProgram: SystemProgram.programId,
+            arciumProgram: ARCIUM_PROGRAM_ID,
+          })
+          .rpc({ skipPreflight: true, commitment: "confirmed" });
 
-      const tx = await program.methods
-        .borrow(amountLamports, encryptedBorrowData)
-        .accounts({
-          position: positionPDA,
-          pool: poolPDA,
-          poolVault,
-          userTokenAccount,
-          user: wallet.publicKey,
-          mpcProgram: web3.Keypair.generate().publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .rpc();
+        // Wait for computation to complete (in production, poll for callback event)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await fetchUserPosition();
 
-      await fetchUserPosition();
-      await fetchPoolStats();
-      
-      return { success: true, signature: tx };
-    } catch (error: any) {
-      console.error('Error borrowing:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [wallet, program, getPositionPDA, fetchUserPosition, fetchPoolStats, USDC_MINT]);
+        return { success: true, signature: tx };
+      } catch (error: any) {
+        console.error("Error borrowing:", error);
+        return { success: false, error: error.message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      wallet.publicKey,
+      program,
+      encryptionKeys,
+      userPosition,
+      getUserAccountPDA,
+      getSignerPDA,
+      fetchUserPosition,
+    ]
+  );
 
   // Repay loan
-  const repay = useCallback(async (
-    amount: number
-  ): Promise<TransactionResult> => {
-    if (!wallet.publicKey || !wallet.signTransaction || !program) {
-      return { success: false, error: 'Wallet not connected' };
-    }
+  const repay = useCallback(
+    async (amount: number): Promise<TransactionResult> => {
+      if (!wallet.publicKey || !program) {
+        return { success: false, error: "Wallet not connected" };
+      }
 
-    try {
-      setLoading(true);
-      const { poolPDA, positionPDA } = await getPositionPDA(wallet.publicKey);
+      try {
+        setLoading(true);
+        const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+        const vaultPDA = getVaultPDA();
 
-      const userTokenAccount = await getAssociatedTokenAddress(
-        USDC_MINT,
-        wallet.publicKey
-      );
+        const amountLamports = new BN(solToLamports(amount).toString());
 
-      const poolVault = await getAssociatedTokenAddress(
-        USDC_MINT,
-        poolPDA,
-        true
-      );
+        const tx = await program.methods
+          .repay(amountLamports)
+          .accounts({
+            owner: wallet.publicKey,
+            userAccount: userAccountPDA,
+            vault: vaultPDA,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc({ commitment: "confirmed" });
 
-      const amountLamports = new BN(amount * 1e6);
-      const encryptedRepayData = Buffer.from('encrypted_repay_data');
+        await fetchUserPosition();
 
-      const tx = await program.methods
-        .repay(amountLamports, encryptedRepayData)
-        .accounts({
-          position: positionPDA,
-          pool: poolPDA,
-          poolVault,
-          userTokenAccount,
-          user: wallet.publicKey,
-          mpcProgram: web3.Keypair.generate().publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .rpc();
-
-      await fetchUserPosition();
-      await fetchPoolStats();
-      
-      return { success: true, signature: tx };
-    } catch (error: any) {
-      console.error('Error repaying:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [wallet, program, getPositionPDA, fetchUserPosition, fetchPoolStats, USDC_MINT]);
-
-  // Withdraw collateral
-  const withdrawCollateral = useCallback(async (
-    amount: number
-  ): Promise<TransactionResult> => {
-    if (!wallet.publicKey || !wallet.signTransaction || !program) {
-      return { success: false, error: 'Wallet not connected' };
-    }
-
-    try {
-      setLoading(true);
-      const { poolPDA, positionPDA } = await getPositionPDA(wallet.publicKey);
-
-      const userTokenAccount = await getAssociatedTokenAddress(
-        USDC_MINT,
-        wallet.publicKey
-      );
-
-      const poolVault = await getAssociatedTokenAddress(
-        USDC_MINT,
-        poolPDA,
-        true
-      );
-
-      const amountLamports = new BN(amount * 1e6);
-      const encryptedWithdrawalData = Buffer.from('encrypted_withdrawal_data');
-
-      const tx = await program.methods
-        .withdrawCollateral(amountLamports, encryptedWithdrawalData)
-        .accounts({
-          position: positionPDA,
-          pool: poolPDA,
-          poolVault,
-          userTokenAccount,
-          user: wallet.publicKey,
-          mpcProgram: web3.Keypair.generate().publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .rpc();
-
-      await fetchUserPosition();
-      await fetchPoolStats();
-      
-      return { success: true, signature: tx };
-    } catch (error: any) {
-      console.error('Error withdrawing:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [wallet, program, getPositionPDA, fetchUserPosition, fetchPoolStats, USDC_MINT]);
+        return { success: true, signature: tx };
+      } catch (error: any) {
+        console.error("Error repaying:", error);
+        return { success: false, error: error.message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      wallet.publicKey,
+      program,
+      getUserAccountPDA,
+      getVaultPDA,
+      fetchUserPosition,
+    ]
+  );
 
   // Request airdrop (for testing on devnet)
   const requestAirdrop = useCallback(async (): Promise<TransactionResult> => {
     if (!wallet.publicKey) {
-      return { success: false, error: 'Wallet not connected' };
+      return { success: false, error: "Wallet not connected" };
     }
 
     try {
       setLoading(true);
       const signature = await connection.requestAirdrop(
         wallet.publicKey,
-        LAMPORTS_PER_SOL
+        2 * LAMPORTS_PER_SOL
       );
 
       await connection.confirmTransaction(signature);
-      
+
       return { success: true, signature };
     } catch (error: any) {
-      console.error('Error requesting airdrop:', error);
+      console.error("Error requesting airdrop:", error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -406,28 +371,26 @@ export function usePrivateLending() {
   useEffect(() => {
     if (wallet.publicKey && program) {
       fetchUserPosition();
-      fetchPoolStats();
     }
-  }, [wallet.publicKey, program, fetchUserPosition, fetchPoolStats]);
+  }, [wallet.publicKey, program, fetchUserPosition]);
 
   return {
     // State
     loading,
     userPosition,
-    poolStats,
+    poolStats: null, // Pool stats not implemented in current contract
     program,
-    
+
     // Actions
-    createPosition,
+    initializeUser,
     depositCollateral,
     borrow,
     repay,
-    withdrawCollateral,
     requestAirdrop,
-    
+
     // Utils
     fetchUserPosition,
-    fetchPoolStats,
+    fetchPoolStats: () => {}, // No-op for now
   };
 }
 
