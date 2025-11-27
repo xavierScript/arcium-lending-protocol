@@ -13,7 +13,7 @@ export const RPC_ENDPOINT =
 // Program IDs
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID ||
-    "2TP41KqcSt4vAzpHz5AsoY64eoY5YeJVZP3FWkyStwo5"
+    "5ZDZTQm8b86mojHbXfGtoY1gj3JpQGLeFyw3hqiDc1RT"
 );
 
 // Arcium MPC Configuration
@@ -31,6 +31,14 @@ export const ARCIUM_FEE_POOL_ACCOUNT = new PublicKey(
   process.env.NEXT_PUBLIC_ARCIUM_FEE_POOL_ACCOUNT ||
     "FsWbPQcJQ2cCyr9ndse13fDqds4F2Ezx2WgTL25Dke4M"
 );
+
+// Arcium Cluster Configuration
+// If cluster offset is set, we're using devnet with a specific cluster
+// If not set, we're using localnet with getArciumEnv()
+export const ARCIUM_CLUSTER_OFFSET = process.env
+  .NEXT_PUBLIC_ARCIUM_CLUSTER_OFFSET
+  ? Number(process.env.NEXT_PUBLIC_ARCIUM_CLUSTER_OFFSET)
+  : null;
 
 // Protocol Parameters (from smart contract constants)
 export const LIQUIDATION_THRESHOLD =

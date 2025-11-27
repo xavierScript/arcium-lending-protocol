@@ -1,6 +1,5 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { AnchorProvider } from "@coral-xyz/anchor";
-import { x25519 } from "@noble/curves/ed25519";
 import {
   getMXEPublicKey,
   getMXEAccAddress,
@@ -12,53 +11,69 @@ import {
   RescueCipher,
   deserializeLE,
   getArciumEnv,
+  x25519,
 } from "@arcium-hq/client";
 
 /**
  * Arcium encryption utilities for private lending protocol
+ * Based on Arcium template patterns
  */
 
 export interface EncryptionKeys {
   privateKey: Uint8Array;
   publicKey: Uint8Array;
+  sharedSecret: Uint8Array;
   cipher: RescueCipher;
 }
 
 /**
  * Initialize encryption keys and cipher for Arcium MPC
+ * Matches pattern from arcium-template/tests/test.ts
  */
 export async function initializeEncryption(
   provider: AnchorProvider,
   programId: PublicKey
 ): Promise<EncryptionKeys> {
-  // Get MXE public key for shared secret generation
-  const mxePublicKey = await getMXEPublicKey(provider, programId);
-  if (!mxePublicKey) {
-    throw new Error("Failed to get MXE public key");
+  try {
+    // Get MXE public key with retry logic
+    const mxePublicKey = await getMXEPublicKeyWithRetry(provider, programId);
+
+    console.log("MXE x25519 pubkey is", mxePublicKey);
+
+    if (!mxePublicKey || mxePublicKey.length !== 32) {
+      throw new Error(`Invalid MXE public key: length=${mxePublicKey?.length}`);
+    }
+
+    // Generate keypair for x25519 key exchange (matching template pattern)
+    const privateKey = x25519.utils.randomSecretKey();
+    const publicKey = x25519.getPublicKey(privateKey);
+
+    // Generate shared secret using x25519 ECDH
+    const sharedSecret = x25519.getSharedSecret(privateKey, mxePublicKey);
+
+    // Initialize Rescue cipher with shared secret
+    const cipher = new RescueCipher(sharedSecret);
+
+    console.log("✅ Encryption initialized successfully");
+    return { privateKey, publicKey, sharedSecret, cipher };
+  } catch (error) {
+    console.error("❌ Encryption initialization failed:", error);
+    throw error;
   }
-
-  // Generate ephemeral x25519 keypair
-  const privateKey = x25519.utils.randomPrivateKey();
-  const publicKey = x25519.getPublicKey(privateKey);
-
-  // Generate shared secret and initialize cipher
-  const sharedSecret = x25519.getSharedSecret(privateKey, mxePublicKey);
-  const cipher = new RescueCipher(sharedSecret);
-
-  return { privateKey, publicKey, cipher };
 }
 /**
- * Encrypt two u64 values for Arcium computation
+ * Encrypt values for Arcium computation
+ * Matches pattern from template: cipher.encrypt(plaintext, nonce)
  */
 export function encryptValues(
   cipher: RescueCipher,
   value1: bigint,
   value2: bigint,
   nonce: Uint8Array
-): [Uint8Array, Uint8Array] {
+): number[][] {
   const plaintext = [value1, value2];
   const ciphertext = cipher.encrypt(plaintext, nonce);
-  return [new Uint8Array(ciphertext[0]), new Uint8Array(ciphertext[1])];
+  return ciphertext; // Returns array of number arrays
 }
 
 /**
@@ -184,4 +199,35 @@ export async function getMXEPublicKeyWithRetry(
     }
   }
   throw new Error("Failed to get MXE public key");
+}
+
+/**
+ * Check if MXE account is initialized (not all zeros)
+ */
+export async function isMXEInitialized(
+  provider: AnchorProvider,
+  programId: PublicKey
+): Promise<boolean> {
+  try {
+    const key = await getMXEPublicKey(provider, programId);
+    if (!key || key.length !== 32) return false;
+
+    // Check if all bytes are zero
+    return key.some((byte) => byte !== 0);
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Convert Arcium comp def offset bytes to u32 number
+ */
+export function compDefOffsetToU32(offsetBytes: Uint8Array): number {
+  // Convert 4-byte little-endian to u32
+  const view = new DataView(
+    offsetBytes.buffer,
+    offsetBytes.byteOffset,
+    offsetBytes.byteLength
+  );
+  return view.getUint32(0, true); // true for little-endian
 }

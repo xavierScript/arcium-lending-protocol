@@ -25,7 +25,7 @@ pub use instructions::*;
 // pub use instructions::CheckLiquidation;
 // pub use instructions::CheckLiquidationCallback;
 
-declare_id!("5jCuVD2zuLBFyt5PsVEXMaAdMCtj4vM9zML1s3ZSQx7v");
+declare_id!("5ZDZTQm8b86mojHbXfGtoY1gj3JpQGLeFyw3hqiDc1RT");
 
 #[arcium_program]
 pub mod lending_protocol {

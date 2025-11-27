@@ -23,6 +23,7 @@ const ArciumPrivateLending = () => {
     userPosition,
     poolStats,
     program,
+    checkCompDefsInitialized,
     initializeUser,
     depositCollateral,
     borrow,
@@ -36,6 +37,9 @@ const ArciumPrivateLending = () => {
   const [activeTab, setActiveTab] = useState("lending");
   const [showPrivateInfo, setShowPrivateInfo] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [compDefsInitialized, setCompDefsInitialized] = useState<
+    boolean | null
+  >(null);
   const [userStats, setUserStats] = useState({
     level: 5,
     xp: 1250,
@@ -49,13 +53,29 @@ const ArciumPrivateLending = () => {
     setMounted(true);
   }, []);
 
-  // Auto-refresh data
+  // Check comp defs initialization status
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (program) {
+        const isInitialized = await checkCompDefsInitialized();
+        setCompDefsInitialized(isInitialized);
+      }
+    };
+    checkStatus();
+  }, [program, checkCompDefsInitialized]);
+
+  // Initial fetch and auto-refresh data
   useEffect(() => {
     if (connected && program) {
+      // Immediate fetch on connection
+      fetchUserPosition();
+      fetchPoolStats();
+
+      // Reduced to 30 seconds to avoid RPC rate limits
       const interval = setInterval(() => {
         fetchUserPosition();
         fetchPoolStats();
-      }, 10000);
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [connected, program, fetchUserPosition, fetchPoolStats]);
@@ -218,6 +238,8 @@ const ArciumPrivateLending = () => {
           const explorerUrl = getExplorerUrl(result.signature, "devnet");
           console.log("View transaction:", explorerUrl);
         }
+        // Force immediate refresh - initializeUser already calls fetchUserPosition
+        // No need for additional delay
       } else {
         showError(
           "Initialization Failed",
@@ -339,23 +361,87 @@ const ArciumPrivateLending = () => {
                   Initialize Your Account
                 </h2>
                 <p className="text-gray-400 mb-6">
-                  Create your private lending account to get started
+                  Set up Arcium MXE and create your private lending account
                 </p>
-                <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={handleInitialize}
-                    disabled={loading}
-                    className="px-6 py-3 bg-[#00ff9d] text-black font-semibold rounded-lg hover:bg-[#00ff9d]/90 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? "Initializing..." : "Initialize Account"}
-                  </button>
-                  <button
-                    onClick={handleAirdrop}
-                    disabled={loading}
-                    className="px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? "Requesting..." : "Request Airdrop (2 SOL)"}
-                  </button>
+                <div className="space-y-4 max-w-2xl mx-auto">
+                  {/* Show MXE initialization warning if not initialized */}
+                  {compDefsInitialized === false && (
+                    <div className="bg-white/[0.05] border border-amber-500/30 rounded-xl p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-amber-500 font-bold">⚠</span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white mb-2">
+                            Arcium MXE Not Initialized
+                          </h3>
+                          <p className="text-sm text-gray-400 mb-3">
+                            The protocol deployer needs to run the
+                            initialization script first:
+                          </p>
+                          <div className="bg-black/40 rounded-lg p-3 font-mono text-xs text-gray-300 border border-white/10">
+                            <code>cd smart\ contract</code>
+                            <br />
+                            <code>npx ts-node scripts/init-arcium.ts</code>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-3">
+                            This is a one-time setup that requires the
+                            deployer's keypair.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show success message if initialized */}
+                  {compDefsInitialized === true && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <span className="text-green-500">✓</span>
+                        </div>
+                        <p className="text-sm text-green-400">
+                          Arcium MXE is initialized and ready for private
+                          computations
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white/[0.05] border border-white/10 rounded-xl p-6">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-[#00ff9d]/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[#00ff9d] font-bold">
+                          {compDefsInitialized ? "1" : "2"}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-1">
+                          Create Your Account
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                          Initialize your personal lending account to start
+                          depositing and borrowing.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={handleInitialize}
+                        disabled={loading}
+                        className="flex-1 px-6 py-3 bg-[#00ff9d] text-black font-semibold rounded-lg hover:bg-[#00ff9d]/90 transition-colors disabled:opacity-50"
+                      >
+                        {loading ? "Initializing..." : "Initialize Account"}
+                      </button>
+                      <button
+                        onClick={handleAirdrop}
+                        disabled={loading}
+                        className="px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
+                      >
+                        {loading ? "Requesting..." : "Airdrop 2 SOL"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

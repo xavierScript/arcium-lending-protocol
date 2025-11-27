@@ -16,11 +16,9 @@ mod circuits {
     pub fn check_health_factor(input_ctxt: Enc<Shared, HealthCheckInput>) -> Enc<Shared, bool> {
         let input = input_ctxt.to_arcis();
         
-        // Calculate max borrowable amount: collateral * 80 / 100
-        let max_borrow = (input.collateral * 80) / 100;
-        
-        // Health check: is the total borrowed amount within safe limits?
-        let is_healthy = input.borrow_amount <= max_borrow;
+        // Health check: borrow_amount * 100 <= collateral * 80
+        // Rearranged to avoid division and reduce intermediate calculations
+        let is_healthy = (input.borrow_amount * 100) <= (input.collateral * 80);
         
         input_ctxt.owner.from_arcis(is_healthy)
     }
@@ -37,11 +35,9 @@ mod circuits {
     pub fn check_liquidation(input_ctxt: Enc<Shared, LiquidationInput>) -> Enc<Shared, bool> {
         let input = input_ctxt.to_arcis();
         
-        // Calculate liquidation threshold: collateral * 80 / 100
-        let liquidation_threshold = (input.collateral * 80) / 100;
-        
-        // If debt exceeds liquidation threshold, position needs liquidation
-        let needs_liquidation = input.debt > liquidation_threshold;
+        // Liquidation check: debt * 100 > collateral * 80
+        // Rearranged to avoid division
+        let needs_liquidation = (input.debt * 100) > (input.collateral * 80);
         
         input_ctxt.owner.from_arcis(needs_liquidation)
     }
