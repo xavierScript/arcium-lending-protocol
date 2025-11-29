@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import React, { useState } from "react";
+import { DollarSign } from "lucide-react";
 import { ActionButton } from "../common/ActionButton";
-import type { UserPosition } from '@/app/src/types';
+import type { UserPosition } from "@/app/src/types";
 
 interface DepositFormProps {
   userPosition: UserPosition | null;
@@ -17,16 +16,24 @@ export const DepositForm: React.FC<DepositFormProps> = ({
   loading,
   onDeposit,
   calculateHealthFactor,
-  getHealthFactorColor
+  getHealthFactorColor,
 }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    await onDeposit(parseFloat(amount));
-    setAmount('');
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onDeposit(parseFloat(amount));
+      setAmount("");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const newCollateral = (userPosition?.collateralAmount || 0) + (parseFloat(amount) || 0);
+  const newCollateral =
+    (userPosition?.collateralAmount || 0) + (parseFloat(amount) || 0);
   const newHealthFactor = calculateHealthFactor(
     newCollateral,
     userPosition?.borrowedAmount || 0
@@ -35,12 +42,15 @@ export const DepositForm: React.FC<DepositFormProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-2xl font-bold mb-2 text-white">Deposit Collateral</h3>
+        <h3 className="text-2xl font-bold mb-2 text-white">
+          Deposit Collateral
+        </h3>
         <p className="text-gray-400 text-sm">
-          Add collateral to your private position. Amount is encrypted via Arcium MPC.
+          Add collateral to your private position. Amount is encrypted via
+          Arcium MPC.
         </p>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
           Amount (USDC)
@@ -66,7 +76,9 @@ export const DepositForm: React.FC<DepositFormProps> = ({
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">New Health Factor</span>
-          <span className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}>
+          <span
+            className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}
+          >
             {newHealthFactor.toFixed(2)}
           </span>
         </div>
@@ -74,8 +86,8 @@ export const DepositForm: React.FC<DepositFormProps> = ({
 
       <ActionButton
         onClick={handleSubmit}
-        disabled={loading || !amount || parseFloat(amount) <= 0}
-        loading={loading}
+        disabled={submitting || loading || !amount || parseFloat(amount) <= 0}
+        loading={submitting || loading}
         label="Deposit Collateral"
       />
     </div>

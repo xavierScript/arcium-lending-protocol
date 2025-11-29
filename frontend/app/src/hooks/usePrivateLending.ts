@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
@@ -39,6 +39,11 @@ export function usePrivateLending() {
     null
   );
 
+  // Fetch serialization/debounce refs
+  const fetchMutexRef = useRef(false);
+  const pendingFetchRef = useRef(false);
+  const fetchDebounceRef = useRef<number | null>(null);
+
   // Derive vault PDA
   const getVaultPDA = useCallback(() => {
     const [vaultPDA] = PublicKey.findProgramAddressSync(
@@ -50,14 +55,14 @@ export function usePrivateLending() {
 
   // Derive user account PDA
   const getUserAccountPDA = useCallback((userPubkey: PublicKey) => {
-    console.log("🔍 Deriving PDA with:");
-    console.log("  Program ID:", PROGRAM_ID.toString());
-    console.log("  User Pubkey:", userPubkey.toString());
+    // console.log("🔍 Deriving PDA with:");
+    // console.log("  Program ID:", PROGRAM_ID.toString());
+    // console.log("  User Pubkey:", userPubkey.toString());
     const [userAccountPDA, bump] = PublicKey.findProgramAddressSync(
       [Buffer.from("user"), userPubkey.toBuffer()],
       PROGRAM_ID
     );
-    console.log("Derived PDA:", userAccountPDA.toString(), "Bump:", bump);
+    // console.log("Derived PDA:", userAccountPDA.toString(), "Bump:", bump);
     return userAccountPDA;
   }, []);
 
@@ -87,18 +92,19 @@ export function usePrivateLending() {
         console.log("Program ID from IDL:", program.programId.toString());
         console.log("Expected Program ID:", PROGRAM_ID.toString());
 
-        // Try to initialize encryption keys (non-blocking)
-        try {
-          const keys = await initializeEncryption(provider, PROGRAM_ID);
-          setEncryptionKeys(keys);
-          console.log("✅ Encryption initialized");
-        } catch (encError) {
-          console.warn(
-            "⚠️ Encryption initialization failed (will initialize on borrow):",
-            encError
-          );
-          // Encryption will be initialized later when needed for borrowing
-        }
+        // Encryption initialization is currently disabled (commented out).
+        // If you want to enable it again, uncomment the block below.
+        // try {
+        //   const keys = await initializeEncryption(provider, PROGRAM_ID);
+        //   setEncryptionKeys(keys);
+        //   console.log("✅ Encryption initialized");
+        // } catch (encError) {
+        //   console.warn(
+        //     "⚠️ Encryption initialization failed (will initialize on borrow):",
+        //     encError
+        //   );
+        // }
+        console.log("ℹ️ Encryption initialization skipped (disabled in code)");
       } catch (error) {
         console.error("Error initializing program:", error);
       }
@@ -109,17 +115,25 @@ export function usePrivateLending() {
 
   // Fetch user position
   const fetchUserPosition = useCallback(async () => {
+    // Skip if wallet/program not ready
     if (!wallet.publicKey || !program) return;
 
+    // Pause fetches when the document/tab is hidden
+    if (typeof document !== "undefined" && document.hidden) return;
+
+    // If a fetch is already running, mark a pending fetch and return (coalesce)
+    if (fetchMutexRef.current) {
+      pendingFetchRef.current = true;
+      return;
+    }
+
+    fetchMutexRef.current = true;
     try {
       setLoading(true);
       const userAccountPDA = getUserAccountPDA(wallet.publicKey);
 
       // Fetch account using program.account with proper typing
       if (!program.account || !(program.account as any).userAccount) {
-        console.error("❌ Program accounts not properly initialized");
-        console.log("Program:", program);
-        console.log("Program.account:", program.account);
         throw new Error("Program accounts not initialized");
       }
 
@@ -151,14 +165,24 @@ export function usePrivateLending() {
         lastUpdate: new Date(),
       };
 
-      console.log("✅ User position fetched:", position);
       setUserPosition(position);
     } catch (error: any) {
-      // Account doesn't exist yet
-      console.log("⚠️ User account not initialized:", error.message);
+      // Account doesn't exist yet or other fetch error
       setUserPosition(null);
     } finally {
       setLoading(false);
+      fetchMutexRef.current = false;
+
+      // If another fetch was requested while this one was running, coalesce and run after a short debounce
+      if (pendingFetchRef.current) {
+        pendingFetchRef.current = false;
+        if (fetchDebounceRef.current) {
+          clearTimeout(fetchDebounceRef.current as any);
+        }
+        fetchDebounceRef.current = window.setTimeout(() => {
+          fetchUserPosition();
+        }, 150) as unknown as number;
+      }
     }
   }, [wallet.publicKey, program, getUserAccountPDA]);
 
@@ -203,7 +227,27 @@ export function usePrivateLending() {
       // Check if already initialized
       const isInitialized = await checkCompDefsInitialized();
       if (isInitialized) {
-        console.log("✅ Computation definitions already initialized");
+        // console.log("✅ Computation definitions already initialized");
+        // console.log("Using cluster account:", clusterAccount.toString());
+        // console.log(
+        //   "Cluster offset:",
+        //   ARCIUM_CLUSTER_OFFSET || "localnet (no offset)"
+        // );
+        // console.log(
+        //   "Health check comp def account:",
+        //   healthCheckCompDefAccount.toString()
+        // );
+        // console.log(
+        //   "Liquidation comp def account:",
+        //   liquidationCompDefAccount.toString()
+        // );
+        // console.log(
+        //   "Comp def PDA (health):",
+        //   healthCheckCompDefAccount.toString()
+        // );
+        // console.log("MXE account:", mxeAccount.toString());
+        // console.log("Payer:", wallet.publicKey.toString());
+        // console.log("Initializing health check computation definition...");
         return {
           success: true,
           signature: "Already initialized",
@@ -258,23 +302,15 @@ export function usePrivateLending() {
           arciumProgramId
         );
 
-        console.log(
-          "Health check comp def account:",
-          healthCheckCompDefAccount.toString()
-        );
-        console.log(
-          "Liquidation comp def account:",
-          liquidationCompDefAccount.toString()
-        );
+        // console.log(
+        //   "Derived health check comp def account:",
+        //   healthCheckCompDefAccount.toString()
+        // );
+        // console.log(
+        //   "Derived liquidation comp def account:",
+        //   liquidationCompDefAccount.toString()
+        // );
 
-        console.log(
-          "Comp def PDA (health):",
-          healthCheckCompDefAccount.toString()
-        );
-        console.log("MXE account:", mxeAccount.toString());
-        console.log("Payer:", wallet.publicKey.toString());
-
-        console.log("Initializing health check computation definition...");
         const healthCheckSig = await program.methods
           .initHealthCheckCompDef()
           .accounts({
@@ -287,10 +323,10 @@ export function usePrivateLending() {
             skipPreflight: false,
           });
 
-        console.log("✅ Health check comp def initialized:", healthCheckSig);
+        // console.log("✅ Health check comp def initialized:", healthCheckSig);
 
         // Finalize the comp def (required step)
-        console.log("Finalizing health check computation definition...");
+        // console.log("Finalizing health check computation definition...");
         const { buildFinalizeCompDefTx } = await import("@arcium-hq/client");
         const healthCheckOffset = compDefOffsetToU32(healthCheckOffsetBytes);
         const finalizeTx = await buildFinalizeCompDefTx(
@@ -304,9 +340,9 @@ export function usePrivateLending() {
         finalizeTx.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
 
         await provider.sendAndConfirm(finalizeTx);
-        console.log("✅ Health check comp def finalized");
+        // console.log("✅ Health check comp def finalized");
 
-        console.log("Initializing liquidation computation definition...");
+        // console.log("Initializing liquidation computation definition...");
         const liquidationSig = await program.methods
           .initLiquidationCompDef()
           .accounts({
@@ -319,10 +355,10 @@ export function usePrivateLending() {
             skipPreflight: false,
           });
 
-        console.log("✅ Liquidation comp def initialized:", liquidationSig);
+        // console.log("✅ Liquidation comp def initialized:", liquidationSig);
 
         // Finalize the liquidation comp def
-        console.log("Finalizing liquidation computation definition...");
+        // console.log("Finalizing liquidation computation definition...");
         const liquidationOffset = compDefOffsetToU32(liquidationOffsetBytes);
         const finalizeLiqTx = await buildFinalizeCompDefTx(
           provider,
@@ -336,18 +372,21 @@ export function usePrivateLending() {
           latestBlockhash2.lastValidBlockHeight;
 
         await provider.sendAndConfirm(finalizeLiqTx);
-        console.log("✅ Liquidation comp def finalized");
+        // console.log("✅ Liquidation comp def finalized");
 
-        console.log("✅ Liquidation comp def initialized:", liquidationSig);
+        // console.log("✅ Liquidation comp def initialized:", liquidationSig);
 
-        // Now try to initialize encryption
-        try {
-          const keys = await initializeEncryption(provider, PROGRAM_ID);
-          setEncryptionKeys(keys);
-          console.log("✅ Encryption initialized after MXE setup");
-        } catch (encError) {
-          console.warn("⚠️ Encryption still failed after MXE setup:", encError);
-        }
+        // Encryption initialization after MXE setup is currently disabled.
+        // To re-enable, uncomment the block below.
+        // try {
+        //   const keys = await initializeEncryption(provider, PROGRAM_ID);
+        //   setEncryptionKeys(keys);
+        // } catch (encError) {
+        //   console.warn("⚠️ Encryption still failed after MXE setup:", encError);
+        // }
+        console.log(
+          "ℹ️ Encryption initialization after MXE setup skipped (disabled in code)"
+        );
 
         return {
           success: true,
@@ -375,7 +414,7 @@ export function usePrivateLending() {
       const accountInfo = await connection.getAccountInfo(userAccountPDA);
 
       if (accountInfo !== null) {
-        console.log("✅ User account already exists");
+        // console.log("✅ User account already exists");
         await fetchUserPosition();
         return {
           success: true,
@@ -404,7 +443,7 @@ export function usePrivateLending() {
         error.message?.includes("already in use") ||
         error.message?.includes("0x0")
       ) {
-        console.log("✅ User account was already initialized");
+        // console.log("✅ User account was already initialized");
         await fetchUserPosition();
         return {
           success: true,
@@ -447,7 +486,7 @@ export function usePrivateLending() {
             maxRetries: 3,
           });
 
-        console.log("✅ Deposit successful:", tx);
+        // console.log("✅ Deposit successful:", tx);
 
         // Wait a bit for on-chain confirmation before fetching
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -682,6 +721,51 @@ export function usePrivateLending() {
       fetchUserPosition();
     }
   }, [wallet.publicKey, program, fetchUserPosition]);
+
+  // Subscribe to account changes via WebSocket to avoid aggressive polling.
+  // When the user account changes on-chain, coalesced `fetchUserPosition` will run.
+  useEffect(() => {
+    if (!wallet.publicKey || !program) return;
+
+    const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+
+    try {
+      const listenerId = connection.onAccountChange(
+        userAccountPDA,
+        () => {
+          // Debounce rapid account-change events
+          if (fetchDebounceRef.current) {
+            clearTimeout(fetchDebounceRef.current as any);
+          }
+          fetchDebounceRef.current = window.setTimeout(() => {
+            fetchUserPosition();
+          }, 100) as unknown as number;
+        },
+        "confirmed"
+      );
+
+      return () => {
+        try {
+          connection.removeAccountChangeListener(listenerId);
+        } catch (e) {
+          // ignore
+        }
+        if (fetchDebounceRef.current) {
+          clearTimeout(fetchDebounceRef.current as any);
+          fetchDebounceRef.current = null;
+        }
+      };
+    } catch (error) {
+      // If subscriptions aren't supported by the RPC endpoint, silently continue
+      return;
+    }
+  }, [
+    wallet.publicKey,
+    program,
+    connection,
+    getUserAccountPDA,
+    fetchUserPosition,
+  ]);
 
   return {
     // State

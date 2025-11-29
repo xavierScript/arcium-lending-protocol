@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import React, { useState } from "react";
+import { DollarSign } from "lucide-react";
 import { ActionButton } from "../common/ActionButton";
-import type { UserPosition } from '@/app/src/types';
+import type { UserPosition } from "@/app/src/types";
 
 interface BorrowFormProps {
   userPosition: UserPosition | null;
@@ -17,17 +16,27 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
   loading,
   onBorrow,
   calculateHealthFactor,
-  getHealthFactorColor
+  getHealthFactorColor,
 }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    await onBorrow(parseFloat(amount));
-    setAmount('');
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onBorrow(parseFloat(amount));
+      setAmount("");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const maxBorrow = ((userPosition?.collateralAmount || 0) * 0.75) - (userPosition?.borrowedAmount || 0);
-  const newDebt = (userPosition?.borrowedAmount || 0) + (parseFloat(amount) || 0);
+  const maxBorrow =
+    (userPosition?.collateralAmount || 0) * 0.75 -
+    (userPosition?.borrowedAmount || 0);
+  const newDebt =
+    (userPosition?.borrowedAmount || 0) + (parseFloat(amount) || 0);
   const newHealthFactor = calculateHealthFactor(
     userPosition?.collateralAmount || 0,
     newDebt
@@ -41,7 +50,7 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
           Borrow against your collateral. Loan details remain private.
         </p>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
           Amount (USDC)
@@ -67,7 +76,7 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
       <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg border border-white/5">
         <span className="text-sm text-gray-300">Interest Rate</span>
         <span className="font-semibold text-white">
-          {userPosition?.interestRate || 0}% APY
+          {/* {userPosition?.interestRate || 0}% APY */}
         </span>
       </div>
 
@@ -81,7 +90,11 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-300">New Health Factor</span>
-            <span className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}>
+            <span
+              className={`font-semibold ${getHealthFactorColor(
+                newHealthFactor
+              )}`}
+            >
               {newHealthFactor.toFixed(2)}
             </span>
           </div>
@@ -90,8 +103,8 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
 
       <ActionButton
         onClick={handleSubmit}
-        disabled={loading || !amount || parseFloat(amount) <= 0}
-        loading={loading}
+        disabled={submitting || loading || !amount || parseFloat(amount) <= 0}
+        loading={submitting || loading}
         label="Borrow Funds"
       />
     </div>

@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import React, { useState } from "react";
+import { DollarSign } from "lucide-react";
 import { ActionButton } from "../common/ActionButton";
-import type { UserPosition } from '@/app/src/types';
+import type { UserPosition } from "@/app/src/types";
 
 interface RepayFormProps {
   userPosition: UserPosition | null;
@@ -17,16 +16,26 @@ export const RepayForm: React.FC<RepayFormProps> = ({
   loading,
   onRepay,
   calculateHealthFactor,
-  getHealthFactorColor
+  getHealthFactorColor,
 }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    await onRepay(parseFloat(amount));
-    setAmount('');
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onRepay(parseFloat(amount));
+      setAmount("");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const newDebt = Math.max(0, (userPosition?.borrowedAmount || 0) - (parseFloat(amount) || 0));
+  const newDebt = Math.max(
+    0,
+    (userPosition?.borrowedAmount || 0) - (parseFloat(amount) || 0)
+  );
   const newHealthFactor = calculateHealthFactor(
     userPosition?.collateralAmount || 0,
     newDebt
@@ -40,7 +49,7 @@ export const RepayForm: React.FC<RepayFormProps> = ({
           Repay your borrowed amount to improve your health factor.
         </p>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
           Amount (USDC)
@@ -73,7 +82,11 @@ export const RepayForm: React.FC<RepayFormProps> = ({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-300">New Health Factor</span>
-            <span className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}>
+            <span
+              className={`font-semibold ${getHealthFactorColor(
+                newHealthFactor
+              )}`}
+            >
               {newHealthFactor.toFixed(2)}
             </span>
           </div>
@@ -83,12 +96,13 @@ export const RepayForm: React.FC<RepayFormProps> = ({
       <ActionButton
         onClick={handleSubmit}
         disabled={
-          loading || 
-          !amount || 
-          parseFloat(amount) <= 0 || 
+          submitting ||
+          loading ||
+          !amount ||
+          parseFloat(amount) <= 0 ||
           (userPosition?.borrowedAmount || 0) === 0
         }
-        loading={loading}
+        loading={submitting || loading}
         label="Repay Loan"
       />
     </div>

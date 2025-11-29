@@ -64,18 +64,16 @@ const ArciumPrivateLending = () => {
     checkStatus();
   }, [program, checkCompDefsInitialized]);
 
-  // Initial fetch and auto-refresh data
+  // Initial fetch and auto-refresh data (reduced frequency)
   useEffect(() => {
     if (connected && program) {
-      // Immediate fetch on connection
       fetchUserPosition();
       fetchPoolStats();
-
-      // Reduced to 30 seconds to avoid RPC rate limits
+      // Poll every 60 seconds (not 10s/30s)
       const interval = setInterval(() => {
         fetchUserPosition();
         fetchPoolStats();
-      }, 30000);
+      }, 60000);
       return () => clearInterval(interval);
     }
   }, [connected, program, fetchUserPosition, fetchPoolStats]);
@@ -117,7 +115,6 @@ const ArciumPrivateLending = () => {
     try {
       showInfo("Processing", "Sending transaction...");
       const result = await depositCollateral(amount);
-
       if (result.success) {
         showSuccess(
           "Deposit Successful!",
@@ -125,7 +122,7 @@ const ArciumPrivateLending = () => {
         );
         if (result.signature) {
           const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          console.log("View transaction:", explorerUrl);
+          // explorerUrl retained for debugging if needed
         }
         setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
       } else {
@@ -168,12 +165,11 @@ const ArciumPrivateLending = () => {
         "Checking health factor and sending transaction..."
       );
       const result = await borrow(amount);
-
       if (result.success) {
         showSuccess("Borrow Successful!", `Borrowed ${amount} USDC`);
         if (result.signature) {
           const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          console.log("View transaction:", explorerUrl);
+          // explorerUrl retained for debugging if needed
         }
         setUserStats((prev) => ({ ...prev, xp: prev.xp + 20 }));
       } else {
@@ -203,12 +199,11 @@ const ArciumPrivateLending = () => {
     try {
       showInfo("Processing", "Sending repayment transaction...");
       const result = await repay(amount);
-
       if (result.success) {
         showSuccess("Repayment Successful!", `Repaid ${amount} USDC`);
         if (result.signature) {
           const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          console.log("View transaction:", explorerUrl);
+          // explorerUrl retained for debugging if needed
         }
         setUserStats((prev) => ({ ...prev, xp: prev.xp + 15 }));
       } else {
