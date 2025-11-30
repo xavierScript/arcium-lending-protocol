@@ -25,3 +25,17 @@ pub struct LiquidationCheckEvent {
     pub needs_liquidation_encrypted: [u8; 32],
     pub nonce: [u8; 16],
 }
+
+#[event]
+pub struct BorrowEvent {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub total_borrowed: u64,
+}
+
+#[event]
+pub struct WithdrawEvent {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub remaining_collateral: u64,
+}

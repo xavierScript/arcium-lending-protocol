@@ -67,6 +67,14 @@ pub mod lending_protocol {
         )
     }
 
+    pub fn finalize_borrow(ctx: Context<FinalizeBorrow>) -> Result<()> {
+        instructions::finalize_borrow(ctx)
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        instructions::withdraw(ctx, amount)
+    }
+
     #[arcium_callback(encrypted_ix = "check_health_factor")]
     pub fn check_health_factor_callback(
         ctx: Context<CheckHealthFactorCallback>,

@@ -19,7 +19,12 @@ pub struct Repay<'info> {
 
 pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
     let user_account = &mut ctx.accounts.user_account;
-    
+    // Prevent zero-value repay
+    require!(amount > 0, ErrorCode::InvalidAmount);
+
+    // Ensure the vault is owned by this program (prevent vault substitution)
+    require!(ctx.accounts.vault.owner == ctx.program_id, ErrorCode::VaultNotOwned);
+
     require!(user_account.borrowed_amount >= amount, ErrorCode::RepayTooMuch);
     
     // Transfer SOL from user to vault
