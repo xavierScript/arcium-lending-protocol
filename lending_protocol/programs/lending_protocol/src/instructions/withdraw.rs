@@ -20,6 +20,9 @@ pub struct Withdraw<'info> {
 pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     let user_account = &mut ctx.accounts.user_account;
 
+    // Ensure the vault is owned by this program (prevent vault substitution)
+    require!(ctx.accounts.vault.owner == ctx.program_id, ErrorCode::VaultNotOwned);
+
     // Disallow withdraws while there is any outstanding debt or pending borrow
     require!(user_account.pending_borrow == 0 && user_account.borrowed_amount == 0, ErrorCode::OutstandingDebt);
 

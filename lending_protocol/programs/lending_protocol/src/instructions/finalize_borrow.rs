@@ -28,6 +28,9 @@ pub struct FinalizeBorrow<'info> {
 pub fn finalize_borrow(ctx: Context<FinalizeBorrow>) -> Result<()> {
     let user_account = &mut ctx.accounts.user_account;
 
+    // Ensure the vault is owned by this program (prevent vault substitution)
+    require!(ctx.accounts.vault.owner == ctx.program_id, ErrorCode::VaultNotOwned);
+
     let amount = user_account.pending_borrow;
     require!(amount > 0, ErrorCode::NoPendingBorrow);
 
