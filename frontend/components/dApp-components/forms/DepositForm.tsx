@@ -53,7 +53,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({
 
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
-          Amount (USDC)
+          Amount (SOL)
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -71,15 +71,19 @@ export const DepositForm: React.FC<DepositFormProps> = ({
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-gray-300">New Collateral</span>
           <span className="font-semibold text-white">
-            ${newCollateral.toLocaleString()}
+            {newCollateral.toFixed(4)} SOL
           </span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">New Health Factor</span>
           <span
-            className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}
+            className={`font-semibold ${
+              newHealthFactor >= 999
+                ? "text-gray-400"
+                : getHealthFactorColor(newHealthFactor)
+            }`}
           >
-            {newHealthFactor.toFixed(2)}
+            {newHealthFactor >= 999 ? "∞" : newHealthFactor.toFixed(2)}
           </span>
         </div>
       </div>

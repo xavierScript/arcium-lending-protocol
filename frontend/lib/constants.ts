@@ -13,7 +13,7 @@ export const RPC_ENDPOINT =
 // Program IDs
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID ||
-    "5ZDZTQm8b86mojHbXfGtoY1gj3JpQGLeFyw3hqiDc1RT"
+    "CLLcUbHn9WtbyShMUvCHJeJR2vEXc8cmXQPYsjoq8RaD"
 );
 
 // Arcium MPC Configuration

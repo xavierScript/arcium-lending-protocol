@@ -61,6 +61,7 @@ export interface TransactionResult {
   success: boolean;
   signature?: string;
   error?: string;
+  message?: string; // Additional info message for successful operations
 }
 
 export interface NotificationData {

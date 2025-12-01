@@ -62,29 +62,55 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
       <div>
         <h3 className="text-2xl font-bold mb-2">Borrow Funds</h3>
         <p className="text-gray-400 text-sm">
-          Borrow against your collateral. Loan details remain private.
+          Borrow against your collateral. Loan details remain private via Arcium
+          MPC.
         </p>
       </div>
 
-      {hasPendingBorrow && (
-        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+      {!hasPendingBorrow && (
+        <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
           <div className="flex items-start space-x-3">
-            <Clock className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-blue-400 mb-1">
+                Two-Step Borrow Process
+              </h4>
+              <p className="text-sm text-gray-300">
+                <strong>Step 1:</strong> Submit borrow request → encrypted
+                health check runs
+                <br />
+                <strong>Step 2:</strong> Click "Finalize" to receive funds after
+                computation
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasPendingBorrow && (
+        <div className="bg-gradient-to-r from-yellow-900/20 to-green-900/20 border border-yellow-500/30 rounded-xl p-4 shadow-lg">
+          <div className="flex items-start space-x-3">
+            <Clock className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0 animate-pulse" />
             <div className="flex-1">
               <h4 className="font-semibold text-yellow-400 mb-1">
-                Pending Borrow: $
-                {(userPosition?.pendingBorrow || 0).toLocaleString()}
+                Pending Borrow: {(userPosition?.pendingBorrow || 0).toFixed(4)}{" "}
+                SOL
               </h4>
-              <p className="text-sm text-gray-300 mb-3">
-                Your health check computation is complete. Finalize to receive
-                your borrowed funds.
+              <p className="text-sm text-gray-300 mb-1">
+                ✅ Health check computation submitted
+              </p>
+              <p className="text-sm text-gray-400 mb-3">
+                Wait a few seconds for the encrypted computation to complete,
+                then click below to receive your funds.
               </p>
               {onFinalizeBorrow && (
                 <ActionButton
                   onClick={handleFinalize}
                   disabled={finalizing || loading}
                   loading={finalizing}
-                  label="Finalize Borrow"
+                  label={
+                    finalizing ? "Finalizing..." : "Finalize & Receive Funds"
+                  }
                 />
               )}
             </div>
@@ -94,7 +120,7 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
 
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
-          Amount (USDC)
+          Amount (SOL)
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -109,7 +135,7 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
         <div className="mt-2 flex justify-between text-sm">
           <span className="text-gray-400">Available to borrow</span>
           <span className="font-semibold text-[#00ff9d]">
-            ${maxBorrow.toFixed(2)}
+            {maxBorrow.toFixed(4)} SOL
           </span>
         </div>
       </div>
@@ -126,17 +152,19 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-300">New Debt</span>
             <span className="font-semibold text-white">
-              ${newDebt.toLocaleString()}
+              {newDebt.toFixed(4)} SOL
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-300">New Health Factor</span>
             <span
-              className={`font-semibold ${getHealthFactorColor(
-                newHealthFactor
-              )}`}
+              className={`font-semibold ${
+                newHealthFactor >= 999
+                  ? "text-gray-400"
+                  : getHealthFactorColor(newHealthFactor)
+              }`}
             >
-              {newHealthFactor.toFixed(2)}
+              {newHealthFactor >= 999 ? "∞" : newHealthFactor.toFixed(2)}
             </span>
           </div>
         </div>

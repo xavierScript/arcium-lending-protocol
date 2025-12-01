@@ -29,7 +29,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
           <div className="text-sm text-gray-400 mb-1">Collateral Deposited</div>
           <div className="text-2xl font-bold">
             {showPrivateInfo
-              ? `$${(userPosition?.collateralAmount || 0).toLocaleString()}`
+              ? `${(userPosition?.collateralAmount || 0).toFixed(4)} SOL`
               : "••••••"}
           </div>
         </div>
@@ -37,7 +37,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
           <div className="text-sm text-gray-400 mb-1">Amount Borrowed</div>
           <div className="text-2xl font-bold">
             {showPrivateInfo
-              ? `$${(userPosition?.borrowedAmount || 0).toLocaleString()}`
+              ? `${(userPosition?.borrowedAmount || 0).toFixed(4)} SOL`
               : "••••••"}
           </div>
         </div>
@@ -46,7 +46,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
             <div className="text-sm text-gray-400 mb-1">Pending Borrow</div>
             <div className="text-2xl font-bold text-yellow-400">
               {showPrivateInfo
-                ? `$${(userPosition?.pendingBorrow || 0).toLocaleString()}`
+                ? `${(userPosition?.pendingBorrow || 0).toFixed(4)} SOL`
                 : "••••••"}
             </div>
             <div className="text-xs text-gray-400 mt-1">
@@ -57,15 +57,19 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
         <div>
           <div className="text-sm text-gray-400 mb-1">Health Factor</div>
           <div
-            className={`text-2xl font-bold ${getHealthFactorColor(
-              userPosition?.healthFactor || 0
-            )}`}
+            className={`text-2xl font-bold ${
+              (userPosition?.healthFactor || 0) >= 999
+                ? "text-gray-400"
+                : getHealthFactorColor(userPosition?.healthFactor || 0)
+            }`}
           >
             {showPrivateInfo
-              ? (userPosition?.healthFactor || 0).toFixed(2)
+              ? (userPosition?.healthFactor || 0) >= 999
+                ? "∞"
+                : (userPosition?.healthFactor || 0).toFixed(2)
               : "•••"}
           </div>
-          {showPrivateInfo && (
+          {showPrivateInfo && (userPosition?.healthFactor || 0) < 999 && (
             <div className="mt-2">
               <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                 <span>Safe</span>
@@ -84,6 +88,11 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
                   }}
                 />
               </div>
+            </div>
+          )}
+          {showPrivateInfo && (userPosition?.healthFactor || 0) >= 999 && (
+            <div className="text-xs text-gray-400 mt-1">
+              No debt - position is safe
             </div>
           )}
         </div>

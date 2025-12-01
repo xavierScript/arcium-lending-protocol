@@ -39,8 +39,28 @@ export async function initializeEncryption(
     const mxeAddress = getMXEAccAddress(programId);
     console.log("🔍 Fetching MXE public key from:", mxeAddress.toString());
 
-    // Get MXE public key with retry logic
-    const mxePublicKey = await getMXEPublicKeyWithRetry(provider, programId);
+    // Get MXE public key - use manual extraction due to SDK bug
+    let mxePublicKey: Uint8Array;
+    try {
+      mxePublicKey = await getMXEPublicKeyWithRetry(provider, programId);
+      console.log("✓ Got MXE public key from SDK");
+    } catch (error) {
+      console.log(
+        "⚠️ SDK method failed, reading manually from account data..."
+      );
+
+      // Manually read MXE account data
+      const accountInfo = await provider.connection.getAccountInfo(mxeAddress);
+      if (!accountInfo) {
+        throw new Error("MXE account does not exist");
+      }
+
+      // MXE account structure: 8 bytes discriminator + 32 bytes pub_key + ...
+      const pubKeyStart = 8;
+      const pubKeyEnd = pubKeyStart + 32;
+      mxePublicKey = accountInfo.data.slice(pubKeyStart, pubKeyEnd);
+      console.log("✓ Manually extracted MXE public key from account data");
+    }
 
     console.log("MXE x25519 pubkey bytes:", Array.from(mxePublicKey));
     console.log("MXE x25519 pubkey length:", mxePublicKey.length);
@@ -93,16 +113,35 @@ export async function initializeEncryption(
 /**
  * Encrypt values for Arcium computation
  * Matches pattern from template: cipher.encrypt(plaintext, nonce)
+ * Returns Uint8Array[32] arrays as expected by smart contract
  */
 export function encryptValues(
   cipher: RescueCipher,
   value1: bigint,
   value2: bigint,
   nonce: Uint8Array
-): number[][] {
+): [Uint8Array, Uint8Array] {
   const plaintext = [value1, value2];
   const ciphertext = cipher.encrypt(plaintext, nonce);
-  return ciphertext; // Returns array of number arrays
+
+  // Convert number[][] to Uint8Array[32] format expected by contract
+  const encrypted1 = numberArrayToBytes32(ciphertext[0]);
+  const encrypted2 = numberArrayToBytes32(ciphertext[1]);
+
+  return [encrypted1, encrypted2];
+}
+
+/**
+ * Convert number[] ciphertext to Uint8Array with exactly 32 bytes
+ * Pads with zeros if needed, or takes first 32 bytes if longer
+ */
+function numberArrayToBytes32(numbers: number[]): Uint8Array {
+  const result = new Uint8Array(32);
+  const length = Math.min(numbers.length, 32);
+  for (let i = 0; i < length; i++) {
+    result[i] = numbers[i] & 0xff; // Ensure it's a valid byte
+  }
+  return result;
 }
 
 /**

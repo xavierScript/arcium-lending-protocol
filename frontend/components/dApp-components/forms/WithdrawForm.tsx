@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
-import { DollarSign, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { DollarSign, AlertCircle } from "lucide-react";
 import { ActionButton } from "../common/ActionButton";
-import type { UserPosition } from '@/app/src/types';
+import type { UserPosition } from "@/app/src/types";
 
 interface WithdrawFormProps {
   userPosition: UserPosition | null;
@@ -17,16 +16,19 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
   loading,
   onWithdraw,
   calculateHealthFactor,
-  getHealthFactorColor
+  getHealthFactorColor,
 }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState("");
 
   const handleSubmit = async () => {
     await onWithdraw(parseFloat(amount));
-    setAmount('');
+    setAmount("");
   };
 
-  const newCollateral = Math.max(0, (userPosition?.collateralAmount || 0) - (parseFloat(amount) || 0));
+  const newCollateral = Math.max(
+    0,
+    (userPosition?.collateralAmount || 0) - (parseFloat(amount) || 0)
+  );
   const newHealthFactor = calculateHealthFactor(
     newCollateral,
     userPosition?.borrowedAmount || 0
@@ -37,13 +39,14 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
       <div>
         <h3 className="text-2xl font-bold mb-2">Withdraw Collateral</h3>
         <p className="text-gray-400 text-sm">
-          Withdraw your collateral. Must maintain healthy position if you have an active loan.
+          Withdraw your collateral. Must maintain healthy position if you have
+          an active loan.
         </p>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
-          Amount (USDC)
+          Amount (SOL)
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -56,9 +59,9 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
           />
         </div>
         <div className="mt-2 flex justify-between text-sm">
-          <span className="text-gray-400">Total collateral</span>
+          <span className="text-gray-400">Available to withdraw</span>
           <span className="font-semibold text-[#00ff9d]">
-            ${(userPosition?.collateralAmount || 0).toLocaleString()}
+            {(userPosition?.collateralAmount || 0).toFixed(4)} SOL
           </span>
         </div>
       </div>
@@ -68,13 +71,19 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-300">New Collateral</span>
             <span className="font-semibold text-white">
-              ${newCollateral.toLocaleString()}
+              {newCollateral.toFixed(4)} SOL
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-300">New Health Factor</span>
-            <span className={`font-semibold ${getHealthFactorColor(newHealthFactor)}`}>
-              {newHealthFactor.toFixed(2)}
+            <span
+              className={`font-semibold ${
+                newHealthFactor >= 999
+                  ? "text-gray-400"
+                  : getHealthFactorColor(newHealthFactor)
+              }`}
+            >
+              {newHealthFactor >= 999 ? "∞" : newHealthFactor.toFixed(2)}
             </span>
           </div>
         </div>
@@ -84,7 +93,8 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
         <div className="flex items-start space-x-2 p-3 bg-yellow-900/20 border border-yellow-500/20 rounded-lg">
           <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
           <p className="text-xs text-yellow-200">
-            Withdrawing collateral will decrease your health factor. Ensure it stays above 1.0 to avoid liquidation.
+            Withdrawing collateral will decrease your health factor. Ensure it
+            stays above 1.0 to avoid liquidation.
           </p>
         </div>
       )}
@@ -92,9 +102,9 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({
       <ActionButton
         onClick={handleSubmit}
         disabled={
-          loading || 
-          !amount || 
-          parseFloat(amount) <= 0 || 
+          loading ||
+          !amount ||
+          parseFloat(amount) <= 0 ||
           (userPosition?.collateralAmount || 0) === 0
         }
         loading={loading}

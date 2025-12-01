@@ -1,5 +1,5 @@
 {
-  "address": "5ZDZTQm8b86mojHbXfGtoY1gj3JpQGLeFyw3hqiDc1RT",
+  "address": "CLLcUbHn9WtbyShMUvCHJeJR2vEXc8cmXQPYsjoq8RaD",
   "metadata": {
     "name": "lending_protocol",
     "version": "0.1.0",
@@ -546,10 +546,6 @@
         {
           "name": "recipient",
           "writable": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -767,7 +763,24 @@
         },
         {
           "name": "vault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "system_program",

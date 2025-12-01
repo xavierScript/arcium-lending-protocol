@@ -1,6 +1,28 @@
+/**
+ * Arcium Private Lending Protocol Hook
+ *
+ * BORROW FLOW (Two-Step Process):
+ * 1. borrow(amount) - Encrypts data, submits health check to Arcium MXE
+ *    - Sets pending_borrow in user account
+ *    - Queues encrypted computation
+ *    - Returns immediately (doesn't transfer funds yet)
+ *
+ * 2. finalizeBorrow() - Transfers funds after computation completes
+ *    - Validates pending_borrow exists
+ *    - Transfers SOL from vault to user
+ *    - Clears pending_borrow, updates borrowed_amount
+ *
+ * This separation ensures health checks complete before funds are disbursed.
+ */
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+  Transaction,
+} from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import type { UserPosition, TransactionResult, UserAccount } from "../types";
 import {
@@ -34,6 +56,7 @@ export function usePrivateLending() {
 
   const [loading, setLoading] = useState(false);
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
+  const [poolStats, setPoolStats] = useState<any>(null);
   const [program, setProgram] = useState<Program | null>(null);
   const [encryptionKeys, setEncryptionKeys] = useState<EncryptionKeys | null>(
     null
@@ -94,6 +117,7 @@ export function usePrivateLending() {
         console.log("✅ Anchor program initialized");
         console.log("Program ID from IDL:", program.programId.toString());
         console.log("Expected Program ID:", PROGRAM_ID.toString());
+        console.log("Available methods:", Object.keys(program.methods));
 
         // Encryption initialization is currently disabled (commented out).
         // If you want to enable it again, uncomment the block below.
@@ -188,6 +212,53 @@ export function usePrivateLending() {
       }
     }
   }, [wallet.publicKey, program, getUserAccountPDA]);
+
+  // Fetch pool/vault statistics (visible to all users)
+  const fetchPoolStats = useCallback(async () => {
+    if (!program) return;
+
+    try {
+      const vaultPDA = getVaultPDA();
+      const accountInfo = await connection.getAccountInfo(vaultPDA);
+
+      if (!accountInfo) {
+        setPoolStats(null);
+        return;
+      }
+
+      // Get vault balance (total liquidity in the protocol)
+      const vaultBalance = accountInfo.lamports;
+      const rentExempt = await connection.getMinimumBalanceForRentExemption(
+        accountInfo.data.length
+      );
+      const availableLiquidity = vaultBalance - rentExempt;
+
+      // Calculate total borrowed by summing all user accounts
+      // Note: This is a simplified approach. For production, you'd want to
+      // maintain this as a global state variable in the smart contract
+      let totalBorrowed = 0;
+
+      // For now, we'll estimate based on vault deposits vs current balance
+      // In production, add a global stats account to track this properly
+
+      const totalLiquiditySol = lamportsToSol(availableLiquidity);
+      const totalBorrowedSol = totalBorrowed; // Will be 0 for now
+      const utilizationRate =
+        totalLiquiditySol > 0
+          ? (totalBorrowedSol / totalLiquiditySol) * 100
+          : 0;
+
+      setPoolStats({
+        totalLiquidity: totalLiquiditySol,
+        totalBorrowed: totalBorrowedSol,
+        utilizationRate,
+        avgAPY: 5.5, // Placeholder - calculate based on utilization in production
+      });
+    } catch (error) {
+      console.error("Error fetching pool stats:", error);
+      setPoolStats(null);
+    }
+  }, [program, connection, getVaultPDA]);
 
   // Check if vault is initialized
   const checkVaultInitialized = useCallback(async (): Promise<boolean> => {
@@ -672,15 +743,15 @@ export function usePrivateLending() {
         // Convert to lamports
         const borrowAmountLamports = solToLamports(amount);
         const collateralLamports = solToLamports(userPosition.collateralAmount);
-        const totalBorrowLamports =
-          solToLamports(userPosition.borrowedAmount) + borrowAmountLamports;
 
-        // Encrypt values (matching template pattern)
+        // Encrypt values for health check computation
+        // Note: We encrypt the NEW borrow amount, not the total debt
+        // The smart contract will add this to existing debt for health check
         const nonce = generateNonce();
         const ciphertext = encryptValues(
           keys.cipher,
-          collateralLamports,
-          totalBorrowLamports,
+          collateralLamports, // Current collateral
+          borrowAmountLamports, // NEW borrow amount (not total!)
           nonce
         );
 
@@ -713,44 +784,119 @@ export function usePrivateLending() {
         const healthCheckOffsetU32 =
           Buffer.from(healthCheckOffset).readUInt32LE();
 
-        const tx = await program.methods
+        // Derive all accounts first
+        const mxeAccount = getMXEAccAddress(PROGRAM_ID);
+        const mempoolAccount = getMempoolAccAddress(PROGRAM_ID);
+        const executingPool = getExecutingPoolAccAddress(PROGRAM_ID);
+        const compDefAccount = getCompDefAccAddress(
+          PROGRAM_ID,
+          healthCheckOffsetU32
+        );
+        const computationAccount = getComputationAccAddress(
+          PROGRAM_ID,
+          computationOffset
+        );
+
+        console.log("Derived accounts:", {
+          mxeAccount: mxeAccount.toString(),
+          mempoolAccount: mempoolAccount.toString(),
+          executingPool: executingPool.toString(),
+          compDefAccount: compDefAccount.toString(),
+          computationAccount: computationAccount.toString(),
+          clusterAccount: clusterAccount.toString(),
+        });
+
+        console.log("Calling borrow with params:", {
+          computationOffset: computationOffset.toString(),
+          borrowAmount: borrowAmountLamports.toString(),
+          encryptedCollateral: Array.from(ciphertext[0]),
+          encryptedBorrow: Array.from(ciphertext[1]),
+          publicKey: Array.from(keys.publicKey),
+          nonce: deserializeLE(nonce).toString(),
+          collateralLamports: collateralLamports.toString(),
+          newBorrowLamports: borrowAmountLamports.toString(),
+        });
+
+        // Build instruction with proper types
+        // All byte arrays must be Uint8Array with exactly 32 bytes
+        const instruction = await program.methods
           .borrow(
             computationOffset,
             new BN(borrowAmountLamports.toString()),
-            Array.from(ciphertext[0]),
-            Array.from(ciphertext[1]),
-            Array.from(keys.publicKey),
+            Array.from(ciphertext[0]), // [u8; 32]
+            Array.from(ciphertext[1]), // [u8; 32]
+            Array.from(keys.publicKey), // [u8; 32]
             new BN(deserializeLE(nonce).toString())
           )
-          .accountsPartial({
+          .accounts({
             payer: wallet.publicKey,
             userAccount: userAccountPDA,
             signPdaAccount: signerPDA,
-            computationAccount: getComputationAccAddress(
-              PROGRAM_ID,
-              computationOffset
-            ),
+            computationAccount,
             clusterAccount,
-            mxeAccount: getMXEAccAddress(PROGRAM_ID),
-            mempoolAccount: getMempoolAccAddress(PROGRAM_ID),
-            executingPool: getExecutingPoolAccAddress(PROGRAM_ID),
-            compDefAccount: getCompDefAccAddress(
-              PROGRAM_ID,
-              healthCheckOffsetU32
-            ),
+            mxeAccount,
+            mempoolAccount,
+            executingPool,
+            compDefAccount,
             poolAccount: ARCIUM_FEE_POOL_ACCOUNT,
             clockAccount: ARCIUM_CLOCK_ACCOUNT,
+            systemProgram: SystemProgram.programId,
+            arciumProgram: ARCIUM_PROGRAM_ID,
           })
-          .rpc({ skipPreflight: true, commitment: "confirmed" });
+          .instruction();
 
-        // Wait for computation to complete (in production, poll for callback event)
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        if (!program.provider.sendAndConfirm) {
+          throw new Error("Provider does not support sendAndConfirm");
+        }
+
+        const tx = await program.provider.sendAndConfirm(
+          new Transaction().add(instruction),
+          [],
+          { skipPreflight: true, commitment: "confirmed" }
+        );
+
+        // Wait a moment for the transaction to settle
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         await fetchUserPosition();
 
-        return { success: true, signature: tx };
+        console.log("✅ Borrow transaction submitted:", tx);
+        console.log("⏳ Waiting for health check computation to complete...");
+        console.log(
+          "💡 Call finalizeBorrow() after computation completes to receive funds"
+        );
+
+        return {
+          success: true,
+          signature: tx,
+          message:
+            "Health check queued. Finalize to receive funds after computation completes.",
+        };
       } catch (error: any) {
         console.error("Error borrowing:", error);
-        return { success: false, error: error.message };
+        console.error("Error type:", typeof error);
+        console.error("Error constructor:", error?.constructor?.name);
+        console.error("Error details:", {
+          message: error?.message,
+          stack: error?.stack,
+          name: error?.name,
+          code: error?.code,
+          logs: error?.logs,
+          toString: error?.toString(),
+        });
+        console.error("All error keys:", Object.keys(error || {}));
+        console.error("Error JSON:", JSON.stringify(error, null, 2));
+
+        // Try to extract meaningful error message
+        let errorMessage = "Transaction failed";
+        if (error?.message) {
+          errorMessage = error.message;
+        } else if (error?.toString && typeof error.toString === "function") {
+          errorMessage = error.toString();
+        } else if (typeof error === "string") {
+          errorMessage = error;
+        }
+
+        return { success: false, error: errorMessage };
       } finally {
         setLoading(false);
       }
@@ -775,9 +921,26 @@ export function usePrivateLending() {
 
       try {
         setLoading(true);
+
+        // Verify there's a pending borrow before attempting
+        if (userPosition && userPosition.pendingBorrow === 0) {
+          return {
+            success: false,
+            error:
+              "No pending borrow to finalize. Please submit a borrow request first.",
+          };
+        }
+
         const userAccountPDA = getUserAccountPDA(wallet.publicKey);
         const vaultPDA = getVaultPDA();
         const recipient = recipientAddress || wallet.publicKey;
+
+        console.log("Finalizing borrow:", {
+          userAccountPDA: userAccountPDA.toString(),
+          vaultPDA: vaultPDA.toString(),
+          recipient: recipient.toString(),
+          pendingAmount: userPosition?.pendingBorrow,
+        });
 
         const tx = await program.methods
           .finalizeBorrow()
@@ -786,31 +949,55 @@ export function usePrivateLending() {
             userAccount: userAccountPDA,
             vault: vaultPDA,
             recipient: recipient,
-            systemProgram: SystemProgram.programId,
           })
           .rpc({
             commitment: "confirmed",
             skipPreflight: false,
           });
 
-        // console.log("✅ Borrow finalized:", tx);
+        console.log("✅ Borrow finalized:", tx);
 
         // Wait for confirmation before fetching
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         await fetchUserPosition();
 
-        return { success: true, signature: tx };
+        return {
+          success: true,
+          signature: tx,
+          message: `Successfully received ${
+            userPosition?.pendingBorrow || 0
+          } SOL`,
+        };
       } catch (error: any) {
         console.error("Error finalizing borrow:", error);
+        console.error("Error details:", {
+          message: error.message,
+          logs: error.logs,
+          code: error.code,
+        });
 
         let errorMessage = error.message;
-        if (error.message?.includes("NoPendingBorrow")) {
-          errorMessage = "No pending borrow to finalize.";
-        } else if (error.message?.includes("HealthCheckNotPassed")) {
-          errorMessage = "Health check not passed. Cannot finalize borrow.";
-        } else if (error.message?.includes("InsufficientVaultFunds")) {
+        if (
+          error.message?.includes("NoPendingBorrow") ||
+          error.message?.includes("0x1786")
+        ) {
+          errorMessage =
+            "No pending borrow to finalize. The health check computation may still be running.";
+        } else if (
+          error.message?.includes("UnhealthyPosition") ||
+          error.message?.includes("0x1782")
+        ) {
+          errorMessage =
+            "Health check failed. Your position would be unhealthy with this borrow.";
+        } else if (
+          error.message?.includes("InsufficientVaultFunds") ||
+          error.message?.includes("0x1787")
+        ) {
           errorMessage =
             "Protocol vault has insufficient funds. Please try again later.";
+        } else if (error.message?.includes("insufficient lamports")) {
+          errorMessage =
+            "Vault has insufficient balance to process this borrow.";
         }
 
         return { success: false, error: errorMessage };
@@ -821,6 +1008,7 @@ export function usePrivateLending() {
     [
       wallet.publicKey,
       program,
+      userPosition,
       getUserAccountPDA,
       getVaultPDA,
       fetchUserPosition,
@@ -1097,7 +1285,7 @@ export function usePrivateLending() {
     // State
     loading,
     userPosition,
-    poolStats: null, // Pool stats not implemented in current contract
+    poolStats,
     program,
     vaultInitialized,
 
@@ -1117,7 +1305,7 @@ export function usePrivateLending() {
 
     // Utils
     fetchUserPosition,
-    fetchPoolStats: () => {}, // No-op for now
+    fetchPoolStats,
   };
 }
 

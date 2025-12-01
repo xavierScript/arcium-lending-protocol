@@ -52,7 +52,7 @@ export const RepayForm: React.FC<RepayFormProps> = ({
 
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">
-          Amount (USDC)
+          Amount (SOL)
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -65,9 +65,9 @@ export const RepayForm: React.FC<RepayFormProps> = ({
           />
         </div>
         <div className="mt-2 flex justify-between text-sm">
-          <span className="text-gray-400">Total debt</span>
+          <span className="text-gray-400">Current Debt</span>
           <span className="font-semibold text-red-400">
-            ${(userPosition?.borrowedAmount || 0).toLocaleString()}
+            {(userPosition?.borrowedAmount || 0).toFixed(4)} SOL
           </span>
         </div>
       </div>
@@ -77,17 +77,19 @@ export const RepayForm: React.FC<RepayFormProps> = ({
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-300">New Debt</span>
             <span className="font-semibold text-white">
-              ${newDebt.toLocaleString()}
+              {newDebt.toFixed(4)} SOL
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-300">New Health Factor</span>
             <span
-              className={`font-semibold ${getHealthFactorColor(
-                newHealthFactor
-              )}`}
+              className={`font-semibold ${
+                newHealthFactor >= 999
+                  ? "text-gray-400"
+                  : getHealthFactorColor(newHealthFactor)
+              }`}
             >
-              {newHealthFactor.toFixed(2)}
+              {newHealthFactor >= 999 ? "∞" : newHealthFactor.toFixed(2)}
             </span>
           </div>
         </div>

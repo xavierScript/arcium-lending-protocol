@@ -70,6 +70,13 @@ const ArciumPrivateLending = () => {
     checkStatus();
   }, [program, checkCompDefsInitialized]);
 
+  // Fetch pool stats on initial load (vault stats are global, don't need user account)
+  useEffect(() => {
+    if (connected && program) {
+      fetchPoolStats();
+    }
+  }, [connected, program, fetchPoolStats]);
+
   // Auto-refresh data (reduced frequency) - but don't do initial fetch
   // The hook already fetches on wallet connection
   useEffect(() => {
@@ -167,42 +174,31 @@ const ArciumPrivateLending = () => {
 
     try {
       showInfo(
-        "Processing Borrow Request",
-        "Step 1/2: Submitting health check computation..."
+        "Submitting Borrow Request",
+        "Encrypting values and queuing health check computation..."
       );
       const result = await borrow(amount);
       if (result.success) {
-        showInfo(
-          "Health Check Submitted",
-          "Step 2/2: Waiting for computation to complete..."
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Health Check Queued!",
+          `Computation submitted for ${amount} SOL borrow. Click 'Finalize Borrow' when ready to receive funds.`,
+          explorerUrl,
+          "View Transaction"
         );
+        setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
 
-        // Wait for computation to complete (in production, you might poll or listen for events)
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        // Now finalize the borrow
-        const finalizeResult = await finalizeBorrow();
-        if (finalizeResult.success) {
-          const explorerUrl = finalizeResult.signature
-            ? getExplorerUrl(finalizeResult.signature, "devnet")
-            : undefined;
-          showSuccess(
-            "Borrow Successful!",
-            `Borrowed ${amount} USDC`,
-            explorerUrl,
-            "View on Solana Explorer"
-          );
-          setUserStats((prev) => ({ ...prev, xp: prev.xp + 20 }));
-        } else {
-          showError(
-            "Finalization Failed",
-            finalizeResult.error || "Could not finalize borrow"
-          );
-        }
+        showInfo(
+          "Next Step",
+          "Wait a few seconds for the computation to complete, then click 'Finalize Borrow' to receive your funds."
+        );
       } else {
         showError("Borrow Failed", result.error || "Transaction failed");
       }
     } catch (error: any) {
+      console.error("Borrow error:", error);
       showError("Error", error.message || "An unexpected error occurred");
     }
   };
@@ -216,13 +212,16 @@ const ArciumPrivateLending = () => {
     if (!userPosition || userPosition.pendingBorrow === 0) {
       showWarning(
         "No Pending Borrow",
-        "You have no pending borrow to finalize"
+        "Submit a borrow request first, then wait for the health check computation to complete."
       );
       return;
     }
 
     try {
-      showInfo("Finalizing Borrow", "Transferring borrowed funds...");
+      showInfo(
+        "Finalizing Borrow",
+        `Transferring ${userPosition.pendingBorrow} SOL from protocol vault...`
+      );
       const result = await finalizeBorrow();
       if (result.success) {
         const explorerUrl = result.signature
@@ -230,15 +229,20 @@ const ArciumPrivateLending = () => {
           : undefined;
         showSuccess(
           "Borrow Finalized!",
-          `Received ${userPosition.pendingBorrow} USDC`,
+          `Successfully received ${userPosition.pendingBorrow} SOL. Funds are now in your wallet.`,
           explorerUrl,
           "View on Solana Explorer"
         );
-        setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
+        setUserStats((prev) => ({ ...prev, xp: prev.xp + 15 }));
       } else {
-        showError("Finalization Failed", result.error || "Transaction failed");
+        showError(
+          "Finalization Failed",
+          result.error ||
+            "Transaction failed. The computation may still be running."
+        );
       }
     } catch (error: any) {
+      console.error("Finalize error:", error);
       showError("Error", error.message || "An unexpected error occurred");
     }
   };
@@ -633,7 +637,10 @@ const ArciumPrivateLending = () => {
                   />
                 )}
                 {activeTab === "analytics" && (
-                  <AnalyticsTab poolStats={poolStats} />
+                  <AnalyticsTab
+                    poolStats={poolStats}
+                    userPosition={userPosition}
+                  />
                 )}
                 {activeTab === "achievements" && (
                   <AchievementsTab userStats={userStats} />
