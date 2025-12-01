@@ -19,11 +19,10 @@ export const Navbar = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
+        {/* <div className="hidden md:flex items-center gap-8">
           <Link href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Features</Link>
           <Link href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors">How it Works</Link>
-          <Link href="#governance" className="text-sm text-gray-400 hover:text-white transition-colors">Governance</Link>
-        </div>
+        </div> */}
 
         {/* CTA & Mobile Toggle */}
         <div className="flex items-center gap-4">
@@ -32,7 +31,7 @@ export const Navbar = () => {
               Documentation
             </Button>
             <Button variant="primary" size="sm" href="/dashboard">
-              Launch App
+              Launch dApp
             </Button>
           </div>
 
