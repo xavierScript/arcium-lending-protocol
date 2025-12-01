@@ -1,5 +1,6 @@
 pub mod init_health_check_comp_def;
 pub mod initialize_user;
+pub mod initialize_vault;
 pub mod deposit_collateral;
 pub mod borrow;
 pub mod check_health_factor_callback;
@@ -8,9 +9,11 @@ pub mod finalize_borrow;
 pub mod withdraw;
 pub mod check_liquidation;
 pub mod check_liquidation_callback;
+pub mod close_user_account;
 
 pub use init_health_check_comp_def::*;
 pub use initialize_user::*;
+pub use initialize_vault::*;
 pub use deposit_collateral::*;
 pub use borrow::*;
 pub use check_health_factor_callback::*;
@@ -19,3 +22,4 @@ pub use finalize_borrow::*;
 pub use withdraw::*;
 pub use check_liquidation::*;
 pub use check_liquidation_callback::*;
+pub use close_user_account::*;

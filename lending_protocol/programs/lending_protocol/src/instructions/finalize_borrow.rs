@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::{state::UserAccount, errors::ErrorCode, events::BorrowEvent};
+use crate::{state::{UserAccount, VaultAccount}, errors::ErrorCode, events::BorrowEvent};
 
 #[derive(Accounts)]
 pub struct FinalizeBorrow<'info> {
@@ -14,9 +14,12 @@ pub struct FinalizeBorrow<'info> {
     )]
     pub user_account: Account<'info, UserAccount>,
 
-    #[account(mut)]
-    /// CHECK: Vault account that holds deposited funds. Expected to be a PDA owned by the program.
-    pub vault: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault_v2"],
+        bump = vault.bump
+    )]
+    pub vault: Account<'info, VaultAccount>,
 
     #[account(mut, constraint = recipient.key() == user_account.owner)]
     /// CHECK: Recipient must be the owner recorded in the `UserAccount`.
@@ -28,19 +31,28 @@ pub struct FinalizeBorrow<'info> {
 pub fn finalize_borrow(ctx: Context<FinalizeBorrow>) -> Result<()> {
     let user_account = &mut ctx.accounts.user_account;
 
-    // Ensure the vault is owned by this program (prevent vault substitution)
-    require!(ctx.accounts.vault.owner == ctx.program_id, ErrorCode::VaultNotOwned);
-
     let amount = user_account.pending_borrow;
     require!(amount > 0, ErrorCode::NoPendingBorrow);
 
-    // Ensure vault has enough lamports
-    let vault_lamports = **ctx.accounts.vault.to_account_info().lamports.borrow();
-    require!(vault_lamports >= amount, ErrorCode::InsufficientVaultFunds);
+    // Ensure vault has enough lamports (accounting for rent-exempt minimum)
+    let vault_lamports = ctx.accounts.vault.to_account_info().lamports();
+    let rent_exempt = Rent::get()?.minimum_balance(ctx.accounts.vault.to_account_info().data_len());
+    let available = vault_lamports.checked_sub(rent_exempt).unwrap_or(0);
+    require!(available >= amount, ErrorCode::InsufficientVaultFunds);
 
-    // Transfer lamports from vault (PDA owned by program) to recipient by direct lamports mutation
-    **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= amount;
-    **ctx.accounts.recipient.to_account_info().try_borrow_mut_lamports()? += amount;
+    // Transfer lamports from vault (PDA owned by program) to recipient using PDA seeds
+    let vault_seeds = &[b"vault_v2".as_ref(), &[ctx.accounts.vault.bump]];
+    let signer_seeds = &[&vault_seeds[..]];
+    
+    let cpi_context = CpiContext::new_with_signer(
+        ctx.accounts.system_program.to_account_info(),
+        anchor_lang::system_program::Transfer {
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.recipient.to_account_info(),
+        },
+        signer_seeds,
+    );
+    anchor_lang::system_program::transfer(cpi_context, amount)?;
 
     // Update user accounting
     user_account.borrowed_amount = user_account.borrowed_amount.checked_add(amount).unwrap();

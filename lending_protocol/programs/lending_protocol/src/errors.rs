@@ -22,4 +22,6 @@ pub enum ErrorCode {
     OutstandingDebt,
     #[msg("Insufficient collateral to withdraw the requested amount")]
     InsufficientCollateral,
+    #[msg("Cannot close account with remaining collateral")]
+    CollateralRemaining,
 }

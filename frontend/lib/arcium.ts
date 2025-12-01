@@ -35,21 +35,50 @@ export async function initializeEncryption(
   programId: PublicKey
 ): Promise<EncryptionKeys> {
   try {
+    // Get MXE account address
+    const mxeAddress = getMXEAccAddress(programId);
+    console.log("🔍 Fetching MXE public key from:", mxeAddress.toString());
+
     // Get MXE public key with retry logic
     const mxePublicKey = await getMXEPublicKeyWithRetry(provider, programId);
 
-    console.log("MXE x25519 pubkey is", mxePublicKey);
+    console.log("MXE x25519 pubkey bytes:", Array.from(mxePublicKey));
+    console.log("MXE x25519 pubkey length:", mxePublicKey.length);
 
     if (!mxePublicKey || mxePublicKey.length !== 32) {
       throw new Error(`Invalid MXE public key: length=${mxePublicKey?.length}`);
     }
 
+    // Check if MXE public key is all zeros (not initialized)
+    const isAllZeros = mxePublicKey.every((byte) => byte === 0);
+    if (isAllZeros) {
+      throw new Error(
+        "MXE public key is all zeros. MXE account may not be fully initialized by Arcium network."
+      );
+    }
+
+    console.log("✓ MXE public key is valid (not all zeros)");
+
     // Generate keypair for x25519 key exchange (matching template pattern)
     const privateKey = x25519.utils.randomSecretKey();
     const publicKey = x25519.getPublicKey(privateKey);
 
+    console.log("✓ Generated client keypair");
+
     // Generate shared secret using x25519 ECDH
-    const sharedSecret = x25519.getSharedSecret(privateKey, mxePublicKey);
+    let sharedSecret: Uint8Array;
+    try {
+      sharedSecret = x25519.getSharedSecret(privateKey, mxePublicKey);
+      console.log("✓ Generated shared secret successfully");
+    } catch (error: any) {
+      console.error("❌ Failed at x25519 key exchange:", error.message);
+      console.error(
+        "This usually means the MXE public key is invalid or the Arcium network nodes haven't registered yet."
+      );
+      throw new Error(
+        `Key exchange failed: ${error.message}. The Arcium network may not be fully initialized.`
+      );
+    }
 
     // Initialize Rescue cipher with shared secret
     const cipher = new RescueCipher(sharedSecret);

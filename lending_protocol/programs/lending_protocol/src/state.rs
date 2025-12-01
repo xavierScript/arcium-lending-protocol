@@ -10,3 +10,9 @@ pub struct UserAccount {
     pub is_healthy: bool,
     pub bump: u8,
 }
+
+#[account]
+#[derive(InitSpace)]
+pub struct VaultAccount {
+    pub bump: u8,
+}

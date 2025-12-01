@@ -38,6 +38,9 @@ export function usePrivateLending() {
   const [encryptionKeys, setEncryptionKeys] = useState<EncryptionKeys | null>(
     null
   );
+  const [vaultInitialized, setVaultInitialized] = useState<boolean | null>(
+    null
+  );
 
   // Fetch serialization/debounce refs
   const fetchMutexRef = useRef(false);
@@ -47,7 +50,7 @@ export function usePrivateLending() {
   // Derive vault PDA
   const getVaultPDA = useCallback(() => {
     const [vaultPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault")],
+      [Buffer.from("vault_v2")],
       PROGRAM_ID
     );
     return vaultPDA;
@@ -185,6 +188,36 @@ export function usePrivateLending() {
       }
     }
   }, [wallet.publicKey, program, getUserAccountPDA]);
+
+  // Check if vault is initialized
+  const checkVaultInitialized = useCallback(async (): Promise<boolean> => {
+    if (!program) return false;
+
+    try {
+      const vaultPDA = getVaultPDA();
+      const accountInfo = await connection.getAccountInfo(vaultPDA);
+
+      if (accountInfo === null) {
+        return false;
+      }
+
+      // Check if vault is owned by the program (not system program)
+      const isOwnedByProgram = accountInfo.owner.equals(PROGRAM_ID);
+      if (!isOwnedByProgram) {
+        console.warn(
+          "⚠️ Vault exists but is owned by wrong program:",
+          accountInfo.owner.toString()
+        );
+        console.warn("Expected program:", PROGRAM_ID.toString());
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.log("Vault not initialized:", error);
+      return false;
+    }
+  }, [program, connection, getVaultPDA]);
 
   // Check if computation definitions are initialized
   const checkCompDefsInitialized = useCallback(async (): Promise<boolean> => {
@@ -408,6 +441,23 @@ export function usePrivateLending() {
 
     try {
       setLoading(true);
+
+      // Auto-initialize vault if needed (silently in background)
+      if (vaultInitialized === false) {
+        console.log("🔄 Auto-initializing vault before user account...");
+        const vaultResult = await _initializeVaultInternal();
+        if (
+          !vaultResult.success &&
+          !vaultResult.error?.includes("already initialized")
+        ) {
+          return {
+            success: false,
+            error: `Failed to initialize vault: ${vaultResult.error}`,
+          };
+        }
+        console.log("✅ Vault auto-initialized");
+      }
+
       const userAccountPDA = getUserAccountPDA(wallet.publicKey);
 
       // Check if account already exists by fetching account info directly
@@ -455,7 +505,58 @@ export function usePrivateLending() {
     } finally {
       setLoading(false);
     }
-  }, [wallet.publicKey, program, getUserAccountPDA, fetchUserPosition]);
+  }, [
+    wallet.publicKey,
+    program,
+    getUserAccountPDA,
+    fetchUserPosition,
+    vaultInitialized,
+    connection,
+  ]);
+
+  // Close user account (requires 0 collateral and 0 debt)
+  const closeUserAccount = useCallback(async (): Promise<TransactionResult> => {
+    if (!wallet.publicKey || !program) {
+      return { success: false, error: "Wallet not connected" };
+    }
+
+    try {
+      setLoading(true);
+      const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+
+      console.log("🗑️ Closing user account...");
+
+      const tx = await program.methods
+        .closeUserAccount()
+        .accounts({
+          owner: wallet.publicKey,
+          userAccount: userAccountPDA,
+        })
+        .rpc({ commitment: "confirmed" });
+
+      console.log("✅ User account closed:", tx);
+
+      // Clear the user position from state
+      setUserPosition(null);
+
+      return { success: true, signature: tx };
+    } catch (error: any) {
+      console.error("Error closing user account:", error);
+
+      let errorMessage = error.message;
+      if (error.message?.includes("CollateralRemaining")) {
+        errorMessage =
+          "Cannot close account with remaining collateral. Withdraw all funds first.";
+      } else if (error.message?.includes("OutstandingDebt")) {
+        errorMessage =
+          "Cannot close account with outstanding debt. Repay all loans first.";
+      }
+
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  }, [wallet.publicKey, program, getUserAccountPDA]);
 
   // Deposit collateral
   const depositCollateral = useCallback(
@@ -466,6 +567,23 @@ export function usePrivateLending() {
 
       try {
         setLoading(true);
+
+        // Auto-initialize vault if needed (silently in background)
+        if (vaultInitialized === false) {
+          console.log("🔄 Auto-initializing vault...");
+          const vaultResult = await _initializeVaultInternal();
+          if (
+            !vaultResult.success &&
+            !vaultResult.error?.includes("already initialized")
+          ) {
+            return {
+              success: false,
+              error: `Failed to initialize vault: ${vaultResult.error}`,
+            };
+          }
+          console.log("✅ Vault auto-initialized");
+        }
+
         const userAccountPDA = getUserAccountPDA(wallet.publicKey);
         const vaultPDA = getVaultPDA();
 
@@ -648,6 +766,67 @@ export function usePrivateLending() {
     ]
   );
 
+  // Finalize borrow after health check computation completes
+  const finalizeBorrow = useCallback(
+    async (recipientAddress?: PublicKey): Promise<TransactionResult> => {
+      if (!wallet.publicKey || !program) {
+        return { success: false, error: "Wallet not connected" };
+      }
+
+      try {
+        setLoading(true);
+        const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+        const vaultPDA = getVaultPDA();
+        const recipient = recipientAddress || wallet.publicKey;
+
+        const tx = await program.methods
+          .finalizeBorrow()
+          .accounts({
+            authority: wallet.publicKey,
+            userAccount: userAccountPDA,
+            vault: vaultPDA,
+            recipient: recipient,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc({
+            commitment: "confirmed",
+            skipPreflight: false,
+          });
+
+        // console.log("✅ Borrow finalized:", tx);
+
+        // Wait for confirmation before fetching
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await fetchUserPosition();
+
+        return { success: true, signature: tx };
+      } catch (error: any) {
+        console.error("Error finalizing borrow:", error);
+
+        let errorMessage = error.message;
+        if (error.message?.includes("NoPendingBorrow")) {
+          errorMessage = "No pending borrow to finalize.";
+        } else if (error.message?.includes("HealthCheckNotPassed")) {
+          errorMessage = "Health check not passed. Cannot finalize borrow.";
+        } else if (error.message?.includes("InsufficientVaultFunds")) {
+          errorMessage =
+            "Protocol vault has insufficient funds. Please try again later.";
+        }
+
+        return { success: false, error: errorMessage };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      wallet.publicKey,
+      program,
+      getUserAccountPDA,
+      getVaultPDA,
+      fetchUserPosition,
+    ]
+  );
+
   // Repay loan
   const repay = useCallback(
     async (amount: number): Promise<TransactionResult> => {
@@ -691,6 +870,142 @@ export function usePrivateLending() {
     ]
   );
 
+  // Withdraw collateral
+  const withdraw = useCallback(
+    async (amount: number): Promise<TransactionResult> => {
+      if (!wallet.publicKey || !program) {
+        return { success: false, error: "Wallet not connected" };
+      }
+
+      try {
+        setLoading(true);
+        const userAccountPDA = getUserAccountPDA(wallet.publicKey);
+        const vaultPDA = getVaultPDA();
+
+        const amountLamports = new BN(solToLamports(amount).toString());
+
+        const tx = await program.methods
+          .withdraw(amountLamports)
+          .accounts({
+            owner: wallet.publicKey,
+            userAccount: userAccountPDA,
+            vault: vaultPDA,
+          })
+          .rpc({
+            commitment: "confirmed",
+            skipPreflight: false,
+          });
+
+        // console.log("✅ Withdrawal successful:", tx);
+
+        // Wait for confirmation before fetching
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await fetchUserPosition();
+
+        return { success: true, signature: tx };
+      } catch (error: any) {
+        console.error("Error withdrawing collateral:", error);
+
+        let errorMessage = error.message;
+        if (error.message?.includes("InsufficientCollateral")) {
+          errorMessage =
+            "Insufficient collateral to withdraw the requested amount.";
+        } else if (error.message?.includes("UnhealthyPosition")) {
+          errorMessage = "Cannot withdraw: would result in unhealthy position.";
+        } else if (error.message?.includes("OutstandingDebt")) {
+          errorMessage =
+            "Cannot withdraw while you have outstanding debt or pending borrow.";
+        } else if (error.message?.includes("VaultNotOwned")) {
+          errorMessage = "Invalid vault account. Please contact support.";
+        }
+
+        return { success: false, error: errorMessage };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      wallet.publicKey,
+      program,
+      getUserAccountPDA,
+      getVaultPDA,
+      fetchUserPosition,
+    ]
+  );
+
+  // Internal function to initialize vault (used by other functions)
+  const _initializeVaultInternal = async (): Promise<TransactionResult> => {
+    if (!wallet.publicKey || !program) {
+      return {
+        success: false,
+        error: "Wallet not connected or program not initialized",
+      };
+    }
+
+    try {
+      const vaultPDA = getVaultPDA();
+
+      // Check if vault exists and is properly initialized
+      const vaultAccount = await connection.getAccountInfo(vaultPDA);
+      if (vaultAccount) {
+        if (vaultAccount.owner.equals(PROGRAM_ID)) {
+          console.log("✅ Vault already properly initialized");
+          setVaultInitialized(true);
+          return { success: true, signature: "Vault already initialized" };
+        } else {
+          // Vault address exists but owned by wrong program (likely system program)
+          return {
+            success: false,
+            error: `Vault PDA address is owned by wrong program. Please contact admin to close the account at ${vaultPDA.toString()} and reinitialize.`,
+          };
+        }
+      }
+
+      console.log("🏦 Initializing vault...");
+      console.log("Vault PDA:", vaultPDA.toString());
+
+      const tx = await program.methods
+        .initializeVault()
+        .accounts({
+          authority: wallet.publicKey,
+          vault: vaultPDA,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      console.log("✅ Vault initialized:", tx);
+      setVaultInitialized(true); // Update state
+      return { success: true, signature: tx };
+    } catch (error: any) {
+      console.error("❌ Error initializing vault:", error);
+
+      // Check if vault already initialized
+      if (
+        error.message?.includes("already in use") ||
+        error.message?.includes("0x0")
+      ) {
+        // Re-check to see if it's properly initialized now
+        const vaultAccount = await connection.getAccountInfo(getVaultPDA());
+        if (vaultAccount?.owner.equals(PROGRAM_ID)) {
+          setVaultInitialized(true);
+          return { success: true, signature: "Vault already initialized" };
+        }
+      }
+
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Initialize vault (public API with loading state)
+  const initializeVault = useCallback(async (): Promise<TransactionResult> => {
+    try {
+      setLoading(true);
+      return await _initializeVaultInternal();
+    } finally {
+      setLoading(false);
+    }
+  }, [wallet.publicKey, program, getVaultPDA]);
+
   // Request airdrop (for testing on devnet)
   const requestAirdrop = useCallback(async (): Promise<TransactionResult> => {
     if (!wallet.publicKey) {
@@ -714,6 +1029,17 @@ export function usePrivateLending() {
       setLoading(false);
     }
   }, [wallet.publicKey, connection]);
+
+  // Check vault initialization status
+  useEffect(() => {
+    const checkVault = async () => {
+      if (program) {
+        const isInitialized = await checkVaultInitialized();
+        setVaultInitialized(isInitialized);
+      }
+    };
+    checkVault();
+  }, [program, checkVaultInitialized]);
 
   // Fetch data on wallet connection
   useEffect(() => {
@@ -773,14 +1099,20 @@ export function usePrivateLending() {
     userPosition,
     poolStats: null, // Pool stats not implemented in current contract
     program,
+    vaultInitialized,
 
     // Actions
     initializeArciumCompDefs,
     checkCompDefsInitialized,
+    checkVaultInitialized,
     initializeUser,
+    closeUserAccount,
     depositCollateral,
     borrow,
+    finalizeBorrow,
     repay,
+    withdraw,
+    initializeVault,
     requestAirdrop,
 
     // Utils

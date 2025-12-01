@@ -1,14 +1,14 @@
 // ============================================
 // FILE: components/tabs/LendingTab.tsx
 // ============================================
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { ProtocolStatsCard } from "../cards/ProtocolStatsCard";
 import { UserPositionCard } from "../cards/UserPositionCard";
 import { DepositForm } from "../forms/DepositForm";
 import { BorrowForm } from "../forms/BorrowForm";
 import { RepayForm } from "../forms/RepayForm";
 import { WithdrawForm } from "../forms/WithdrawForm";
-import type { UserPosition, PoolStats } from '@/app/src/types';
+import type { UserPosition, PoolStats } from "@/app/src/types";
 
 interface LendingTabProps {
   userPosition: UserPosition | null;
@@ -20,6 +20,7 @@ interface LendingTabProps {
   getHealthFactorBg: (hf: number) => string;
   onDeposit: (amount: number) => Promise<any>;
   onBorrow: (amount: number) => Promise<any>;
+  onFinalizeBorrow?: () => Promise<any>;
   onRepay: (amount: number) => Promise<any>;
   onWithdraw: (amount: number) => Promise<any>;
 }
@@ -34,16 +35,17 @@ export const LendingTab: React.FC<LendingTabProps> = ({
   getHealthFactorBg,
   onDeposit,
   onBorrow,
+  onFinalizeBorrow,
   onRepay,
-  onWithdraw
+  onWithdraw,
 }) => {
-  const [activeTab, setActiveTab] = useState('deposit');
+  const [activeTab, setActiveTab] = useState("deposit");
 
   const tabs = [
-    { id: 'deposit', label: 'Deposit' },
-    { id: 'borrow', label: 'Borrow' },
-    { id: 'repay', label: 'Repay' },
-    { id: 'withdraw', label: 'Withdraw' },
+    { id: "deposit", label: "Deposit" },
+    { id: "borrow", label: "Borrow" },
+    { id: "repay", label: "Repay" },
+    { id: "withdraw", label: "Withdraw" },
   ];
 
   return (
@@ -70,8 +72,8 @@ export const LendingTab: React.FC<LendingTabProps> = ({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 py-4 px-6 font-semibold capitalize transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-[#00ff9d]/10 text-[#00ff9d] border-b-2 border-[#00ff9d]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? "bg-[#00ff9d]/10 text-[#00ff9d] border-b-2 border-[#00ff9d]"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
                 }`}
               >
                 {tab.label}
@@ -81,7 +83,7 @@ export const LendingTab: React.FC<LendingTabProps> = ({
 
           {/* Tab Content */}
           <div className="p-6">
-            {activeTab === 'deposit' && (
+            {activeTab === "deposit" && (
               <DepositForm
                 userPosition={userPosition}
                 loading={loading}
@@ -91,17 +93,18 @@ export const LendingTab: React.FC<LendingTabProps> = ({
               />
             )}
 
-            {activeTab === 'borrow' && (
+            {activeTab === "borrow" && (
               <BorrowForm
                 userPosition={userPosition}
                 loading={loading}
                 onBorrow={onBorrow}
+                onFinalizeBorrow={onFinalizeBorrow}
                 calculateHealthFactor={calculateHealthFactor}
                 getHealthFactorColor={getHealthFactorColor}
               />
             )}
 
-            {activeTab === 'repay' && (
+            {activeTab === "repay" && (
               <RepayForm
                 userPosition={userPosition}
                 loading={loading}
@@ -111,7 +114,7 @@ export const LendingTab: React.FC<LendingTabProps> = ({
               />
             )}
 
-            {activeTab === 'withdraw' && (
+            {activeTab === "withdraw" && (
               <WithdrawForm
                 userPosition={userPosition}
                 loading={loading}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DollarSign } from "lucide-react";
+import { DollarSign, Clock, AlertCircle } from "lucide-react";
 import { ActionButton } from "../common/ActionButton";
 import type { UserPosition } from "@/app/src/types";
 
@@ -7,6 +7,7 @@ interface BorrowFormProps {
   userPosition: UserPosition | null;
   loading: boolean;
   onBorrow: (amount: number) => Promise<void>;
+  onFinalizeBorrow?: () => Promise<void>;
   calculateHealthFactor: (collateral: number, borrowed: number) => number;
   getHealthFactorColor: (hf: number) => string;
 }
@@ -15,11 +16,13 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
   userPosition,
   loading,
   onBorrow,
+  onFinalizeBorrow,
   calculateHealthFactor,
   getHealthFactorColor,
 }) => {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -29,6 +32,16 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
       setAmount("");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!onFinalizeBorrow || finalizing) return;
+    setFinalizing(true);
+    try {
+      await onFinalizeBorrow();
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -42,6 +55,8 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
     newDebt
   );
 
+  const hasPendingBorrow = (userPosition?.pendingBorrow || 0) > 0;
+
   return (
     <div className="space-y-6">
       <div>
@@ -50,6 +65,32 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
           Borrow against your collateral. Loan details remain private.
         </p>
       </div>
+
+      {hasPendingBorrow && (
+        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+          <div className="flex items-start space-x-3">
+            <Clock className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-yellow-400 mb-1">
+                Pending Borrow: $
+                {(userPosition?.pendingBorrow || 0).toLocaleString()}
+              </h4>
+              <p className="text-sm text-gray-300 mb-3">
+                Your health check computation is complete. Finalize to receive
+                your borrowed funds.
+              </p>
+              {onFinalizeBorrow && (
+                <ActionButton
+                  onClick={handleFinalize}
+                  disabled={finalizing || loading}
+                  loading={finalizing}
+                  label="Finalize Borrow"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium mb-2 text-gray-300">

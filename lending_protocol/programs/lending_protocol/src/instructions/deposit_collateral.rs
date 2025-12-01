@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::{state::UserAccount, events::DepositEvent};
+use crate::{state::{UserAccount, VaultAccount}, events::DepositEvent};
 
 #[derive(Accounts)]
 pub struct DepositCollateral<'info> {
@@ -11,9 +11,12 @@ pub struct DepositCollateral<'info> {
         bump = user_account.bump
     )]
     pub user_account: Account<'info, UserAccount>,
-    #[account(mut)]
-    /// CHECK: This is the vault account that holds deposited funds
-    pub vault: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault_v2"],
+        bump = vault.bump
+    )]
+    pub vault: Account<'info, VaultAccount>,
     pub system_program: Program<'info, System>,
 }
 

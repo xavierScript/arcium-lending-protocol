@@ -43,6 +43,10 @@ pub mod lending_protocol {
         instructions::initialize_user(ctx)
     }
 
+    pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
+        instructions::initialize_vault(ctx)
+    }
+
     pub fn deposit_collateral(ctx: Context<DepositCollateral>, amount: u64) -> Result<()> {
         instructions::deposit_collateral(ctx, amount)
     }
@@ -111,5 +115,9 @@ pub mod lending_protocol {
         output: ComputationOutputs<CheckLiquidationOutput>,
     ) -> Result<()> {
         instructions::check_liquidation_callback(ctx, output)
+    }
+
+    pub fn close_user_account(ctx: Context<CloseUserAccount>) -> Result<()> {
+        instructions::close_user_account(ctx)
     }
 }

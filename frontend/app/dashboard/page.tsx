@@ -23,11 +23,17 @@ const ArciumPrivateLending = () => {
     userPosition,
     poolStats,
     program,
+    vaultInitialized,
     checkCompDefsInitialized,
+    checkVaultInitialized,
     initializeUser,
+    closeUserAccount,
     depositCollateral,
     borrow,
+    finalizeBorrow,
     repay,
+    withdraw,
+    initializeVault,
     requestAirdrop,
     fetchUserPosition,
     fetchPoolStats,
@@ -64,19 +70,18 @@ const ArciumPrivateLending = () => {
     checkStatus();
   }, [program, checkCompDefsInitialized]);
 
-  // Initial fetch and auto-refresh data (reduced frequency)
+  // Auto-refresh data (reduced frequency) - but don't do initial fetch
+  // The hook already fetches on wallet connection
   useEffect(() => {
-    if (connected && program) {
-      fetchUserPosition();
-      fetchPoolStats();
-      // Poll every 60 seconds (not 10s/30s)
+    if (connected && program && userPosition) {
+      // Only start polling if user account exists
       const interval = setInterval(() => {
         fetchUserPosition();
         fetchPoolStats();
       }, 60000);
       return () => clearInterval(interval);
     }
-  }, [connected, program, fetchUserPosition, fetchPoolStats]);
+  }, [connected, program, userPosition, fetchUserPosition, fetchPoolStats]);
 
   // Utility Functions
   const calculateHealthFactor = (
@@ -116,14 +121,15 @@ const ArciumPrivateLending = () => {
       showInfo("Processing", "Sending transaction...");
       const result = await depositCollateral(amount);
       if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
         showSuccess(
           "Deposit Successful!",
-          `Deposited ${amount} USDC to your private position`
+          `Deposited ${amount} USDC to your private position`,
+          explorerUrl,
+          "View on Solana Explorer"
         );
-        if (result.signature) {
-          const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          // explorerUrl retained for debugging if needed
-        }
         setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
       } else {
         showError("Deposit Failed", result.error || "Transaction failed");
@@ -161,19 +167,76 @@ const ArciumPrivateLending = () => {
 
     try {
       showInfo(
-        "Processing",
-        "Checking health factor and sending transaction..."
+        "Processing Borrow Request",
+        "Step 1/2: Submitting health check computation..."
       );
       const result = await borrow(amount);
       if (result.success) {
-        showSuccess("Borrow Successful!", `Borrowed ${amount} USDC`);
-        if (result.signature) {
-          const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          // explorerUrl retained for debugging if needed
+        showInfo(
+          "Health Check Submitted",
+          "Step 2/2: Waiting for computation to complete..."
+        );
+
+        // Wait for computation to complete (in production, you might poll or listen for events)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Now finalize the borrow
+        const finalizeResult = await finalizeBorrow();
+        if (finalizeResult.success) {
+          const explorerUrl = finalizeResult.signature
+            ? getExplorerUrl(finalizeResult.signature, "devnet")
+            : undefined;
+          showSuccess(
+            "Borrow Successful!",
+            `Borrowed ${amount} USDC`,
+            explorerUrl,
+            "View on Solana Explorer"
+          );
+          setUserStats((prev) => ({ ...prev, xp: prev.xp + 20 }));
+        } else {
+          showError(
+            "Finalization Failed",
+            finalizeResult.error || "Could not finalize borrow"
+          );
         }
-        setUserStats((prev) => ({ ...prev, xp: prev.xp + 20 }));
       } else {
         showError("Borrow Failed", result.error || "Transaction failed");
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
+  };
+
+  const handleFinalizeBorrow = async () => {
+    if (!connected) {
+      showError("Wallet Not Connected", "Please connect your wallet first");
+      return;
+    }
+
+    if (!userPosition || userPosition.pendingBorrow === 0) {
+      showWarning(
+        "No Pending Borrow",
+        "You have no pending borrow to finalize"
+      );
+      return;
+    }
+
+    try {
+      showInfo("Finalizing Borrow", "Transferring borrowed funds...");
+      const result = await finalizeBorrow();
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Borrow Finalized!",
+          `Received ${userPosition.pendingBorrow} USDC`,
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+        setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
+      } else {
+        showError("Finalization Failed", result.error || "Transaction failed");
       }
     } catch (error: any) {
       showError("Error", error.message || "An unexpected error occurred");
@@ -200,70 +263,18 @@ const ArciumPrivateLending = () => {
       showInfo("Processing", "Sending repayment transaction...");
       const result = await repay(amount);
       if (result.success) {
-        showSuccess("Repayment Successful!", `Repaid ${amount} USDC`);
-        if (result.signature) {
-          const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          // explorerUrl retained for debugging if needed
-        }
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Repayment Successful!",
+          `Repaid ${amount} USDC`,
+          explorerUrl,
+          "View on Solana Explorer"
+        );
         setUserStats((prev) => ({ ...prev, xp: prev.xp + 15 }));
       } else {
         showError("Repayment Failed", result.error || "Transaction failed");
-      }
-    } catch (error: any) {
-      showError("Error", error.message || "An unexpected error occurred");
-    }
-  };
-
-  const handleInitialize = async () => {
-    if (!connected) {
-      showError("Wallet Not Connected", "Please connect your wallet first");
-      return;
-    }
-
-    try {
-      showInfo("Initializing", "Creating your account...");
-      const result = await initializeUser();
-
-      if (result.success) {
-        showSuccess(
-          "Account Created!",
-          "Your lending account has been initialized"
-        );
-        if (result.signature) {
-          const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          console.log("View transaction:", explorerUrl);
-        }
-        // Force immediate refresh - initializeUser already calls fetchUserPosition
-        // No need for additional delay
-      } else {
-        showError(
-          "Initialization Failed",
-          result.error || "Transaction failed"
-        );
-      }
-    } catch (error: any) {
-      showError("Error", error.message || "An unexpected error occurred");
-    }
-  };
-
-  const handleAirdrop = async () => {
-    if (!connected) {
-      showError("Wallet Not Connected", "Please connect your wallet first");
-      return;
-    }
-
-    try {
-      showInfo("Requesting", "Requesting 2 SOL airdrop...");
-      const result = await requestAirdrop();
-
-      if (result.success) {
-        showSuccess("Airdrop Successful!", "Received 2 SOL");
-        if (result.signature) {
-          const explorerUrl = getExplorerUrl(result.signature, "devnet");
-          console.log("View transaction:", explorerUrl);
-        }
-      } else {
-        showError("Airdrop Failed", result.error || "Transaction failed");
       }
     } catch (error: any) {
       showError("Error", error.message || "An unexpected error occurred");
@@ -281,29 +292,183 @@ const ArciumPrivateLending = () => {
       return;
     }
 
-    if (!userPosition) {
-      showError("No Position", "No collateral to withdraw");
+    if (!userPosition || userPosition.collateralAmount === 0) {
+      showError("No Collateral", "You have no collateral to withdraw");
       return;
     }
 
-    if (userPosition.borrowedAmount > 0) {
-      const newCollateral = userPosition.collateralAmount - amount;
-      const newHealthFactor = calculateHealthFactor(
-        newCollateral,
-        userPosition.borrowedAmount
+    if (amount > userPosition.collateralAmount) {
+      showError(
+        "Insufficient Collateral",
+        `Maximum withdrawal: $${userPosition.collateralAmount.toFixed(2)}`
       );
-
-      if (newHealthFactor < 1.2) {
-        showError(
-          "Unsafe Withdrawal",
-          "This withdrawal would put your position at risk of liquidation"
-        );
-        return;
-      }
+      return;
     }
 
-    // Withdrawal not implemented in current contract
-    showWarning("Not Implemented", "Withdrawal feature coming soon");
+    // Check if withdrawal would make position unhealthy
+    const newCollateral = userPosition.collateralAmount - amount;
+    const newHealthFactor = calculateHealthFactor(
+      newCollateral,
+      userPosition.borrowedAmount
+    );
+
+    if (userPosition.borrowedAmount > 0 && newHealthFactor < 1.0) {
+      showError(
+        "Unhealthy Position",
+        `This withdrawal would result in a health factor of ${newHealthFactor.toFixed(
+          2
+        )}. Health factor must stay above 1.0`
+      );
+      return;
+    }
+
+    try {
+      showInfo("Processing", "Sending withdrawal transaction...");
+      const result = await withdraw(amount);
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Withdrawal Successful!",
+          `Withdrew ${amount} USDC`,
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+        setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
+      } else {
+        showError("Withdrawal Failed", result.error || "Transaction failed");
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
+  };
+
+  const handleInitializeVault = async () => {
+    if (!connected) {
+      showError("Wallet Not Connected", "Please connect your wallet first");
+      return;
+    }
+
+    try {
+      showInfo("Initializing Vault", "Creating protocol vault...");
+      const result = await initializeVault();
+
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Vault Initialized!",
+          "Protocol vault has been created successfully",
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+        // Refresh vault status
+        await checkVaultInitialized();
+      } else {
+        showError(
+          "Vault Initialization Failed",
+          result.error || "Transaction failed"
+        );
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
+  };
+
+  const handleInitialize = async () => {
+    if (!connected) {
+      showError("Wallet Not Connected", "Please connect your wallet first");
+      return;
+    }
+
+    try {
+      showInfo("Initializing", "Creating your account...");
+      const result = await initializeUser();
+
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Account Created!",
+          "Your lending account has been initialized",
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+        // Force immediate refresh - initializeUser already calls fetchUserPosition
+        // No need for additional delay
+      } else {
+        showError(
+          "Initialization Failed",
+          result.error || "Transaction failed"
+        );
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
+  };
+
+  const handleCloseAccount = async () => {
+    if (!connected) {
+      showError("Wallet Not Connected", "Please connect your wallet first");
+      return;
+    }
+
+    if (!userPosition) {
+      showError("No Account", "No account to close");
+      return;
+    }
+
+    try {
+      showInfo("Closing Account", "Closing your account...");
+      const result = await closeUserAccount();
+
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Account Closed!",
+          "Your account has been closed. You can initialize a fresh account.",
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+      } else {
+        showError("Close Failed", result.error || "Transaction failed");
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
+  };
+
+  const handleAirdrop = async () => {
+    if (!connected) {
+      showError("Wallet Not Connected", "Please connect your wallet first");
+      return;
+    }
+
+    try {
+      showInfo("Requesting", "Requesting 2 SOL airdrop...");
+      const result = await requestAirdrop();
+
+      if (result.success) {
+        const explorerUrl = result.signature
+          ? getExplorerUrl(result.signature, "devnet")
+          : undefined;
+        showSuccess(
+          "Airdrop Successful!",
+          "Received 2 SOL",
+          explorerUrl,
+          "View on Solana Explorer"
+        );
+      } else {
+        showError("Airdrop Failed", result.error || "Transaction failed");
+      }
+    } catch (error: any) {
+      showError("Error", error.message || "An unexpected error occurred");
+    }
   };
 
   return (
@@ -347,6 +512,16 @@ const ArciumPrivateLending = () => {
                 </h2>
                 <p className="text-gray-400 mb-6">
                   Connect your Solana wallet to access private lending features
+                </p>
+              </div>
+            ) : loading && !userPosition ? (
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-12 text-center">
+                <Shield className="w-16 h-16 mx-auto mb-4 text-[#00ff9d] animate-pulse" />
+                <h2 className="text-2xl font-bold mb-2 text-white">
+                  Loading...
+                </h2>
+                <p className="text-gray-400 mb-6">
+                  Checking your account status
                 </p>
               </div>
             ) : !userPosition ? (
@@ -452,6 +627,7 @@ const ArciumPrivateLending = () => {
                     getHealthFactorBg={getHealthFactorBg}
                     onDeposit={handleDeposit}
                     onBorrow={handleBorrow}
+                    onFinalizeBorrow={handleFinalizeBorrow}
                     onRepay={handleRepay}
                     onWithdraw={handleWithdraw}
                   />

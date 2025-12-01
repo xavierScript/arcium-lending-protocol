@@ -9,7 +9,16 @@
   "instructions": [
     {
       "name": "borrow",
-      "discriminator": [228, 253, 131, 202, 207, 116, 89, 18],
+      "discriminator": [
+        228,
+        253,
+        131,
+        202,
+        207,
+        116,
+        89,
+        18
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -23,7 +32,12 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [117, 115, 101, 114]
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
               },
               {
                 "kind": "account",
@@ -40,7 +54,19 @@
               {
                 "kind": "const",
                 "value": [
-                  83, 105, 103, 110, 101, 114, 65, 99, 99, 111, 117, 110, 116
+                  83,
+                  105,
+                  103,
+                  110,
+                  101,
+                  114,
+                  65,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               }
             ]
@@ -98,19 +124,28 @@
         {
           "name": "encrypted_collateral",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
           "name": "encrypted_borrow",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
           "name": "pub_key",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
@@ -121,7 +156,16 @@
     },
     {
       "name": "check_health_factor_callback",
-      "discriminator": [147, 110, 87, 198, 0, 180, 222, 65],
+      "discriminator": [
+        147,
+        110,
+        87,
+        198,
+        0,
+        180,
+        222,
+        65
+      ],
       "accounts": [
         {
           "name": "arcium_program",
@@ -158,7 +202,16 @@
     },
     {
       "name": "check_liquidation",
-      "discriminator": [17, 164, 40, 249, 253, 162, 132, 182],
+      "discriminator": [
+        17,
+        164,
+        40,
+        249,
+        253,
+        162,
+        132,
+        182
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -173,7 +226,19 @@
               {
                 "kind": "const",
                 "value": [
-                  83, 105, 103, 110, 101, 114, 65, 99, 99, 111, 117, 110, 116
+                  83,
+                  105,
+                  103,
+                  110,
+                  101,
+                  114,
+                  65,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
                 ]
               }
             ]
@@ -227,19 +292,28 @@
         {
           "name": "encrypted_collateral",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
           "name": "encrypted_debt",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
           "name": "pub_key",
           "type": {
-            "array": ["u8", 32]
+            "array": [
+              "u8",
+              32
+            ]
           }
         },
         {
@@ -250,7 +324,16 @@
     },
     {
       "name": "check_liquidation_callback",
-      "discriminator": [162, 132, 28, 60, 219, 80, 53, 100],
+      "discriminator": [
+        162,
+        132,
+        28,
+        60,
+        219,
+        80,
+        53,
+        100
+      ],
       "accounts": [
         {
           "name": "arcium_program",
@@ -286,8 +369,17 @@
       ]
     },
     {
-      "name": "deposit_collateral",
-      "discriminator": [156, 131, 142, 116, 146, 247, 162, 120],
+      "name": "close_user_account",
+      "discriminator": [
+        236,
+        181,
+        3,
+        71,
+        194,
+        18,
+        151,
+        191
+      ],
       "accounts": [
         {
           "name": "owner",
@@ -301,7 +393,54 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [117, 115, 101, 114]
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "deposit_collateral",
+      "discriminator": [
+        156,
+        131,
+        142,
+        116,
+        146,
+        247,
+        162,
+        120
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
               },
               {
                 "kind": "account",
@@ -312,7 +451,24 @@
         },
         {
           "name": "vault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
@@ -327,8 +483,89 @@
       ]
     },
     {
+      "name": "finalize_borrow",
+      "discriminator": [
+        218,
+        244,
+        243,
+        36,
+        219,
+        252,
+        146,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_account.owner",
+                "account": "UserAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "init_health_check_comp_def",
-      "discriminator": [123, 64, 21, 76, 255, 30, 93, 153],
+      "discriminator": [
+        123,
+        64,
+        21,
+        76,
+        255,
+        30,
+        93,
+        153
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -341,7 +578,9 @@
         },
         {
           "name": "comp_def_account",
-          "docs": ["Can't check it here as it's not initialized yet."],
+          "docs": [
+            "Can't check it here as it's not initialized yet."
+          ],
           "writable": true
         },
         {
@@ -357,7 +596,16 @@
     },
     {
       "name": "init_liquidation_comp_def",
-      "discriminator": [7, 175, 107, 68, 227, 100, 250, 26],
+      "discriminator": [
+        7,
+        175,
+        107,
+        68,
+        227,
+        100,
+        250,
+        26
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -370,7 +618,9 @@
         },
         {
           "name": "comp_def_account",
-          "docs": ["Can't check it here as it's not initialized yet."],
+          "docs": [
+            "Can't check it here as it's not initialized yet."
+          ],
           "writable": true
         },
         {
@@ -386,7 +636,16 @@
     },
     {
       "name": "initialize_user",
-      "discriminator": [111, 17, 185, 250, 60, 122, 38, 254],
+      "discriminator": [
+        111,
+        17,
+        185,
+        250,
+        60,
+        122,
+        38,
+        254
+      ],
       "accounts": [
         {
           "name": "owner",
@@ -400,7 +659,12 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [117, 115, 101, 114]
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
               },
               {
                 "kind": "account",
@@ -417,8 +681,63 @@
       "args": []
     },
     {
+      "name": "initialize_vault",
+      "discriminator": [
+        48,
+        191,
+        163,
+        44,
+        71,
+        129,
+        63,
+        164
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "repay",
-      "discriminator": [234, 103, 67, 82, 208, 234, 219, 166],
+      "discriminator": [
+        234,
+        103,
+        67,
+        82,
+        208,
+        234,
+        219,
+        166
+      ],
       "accounts": [
         {
           "name": "owner",
@@ -432,7 +751,12 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [117, 115, 101, 114]
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
               },
               {
                 "kind": "account",
@@ -456,54 +780,260 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "withdraw",
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
     {
       "name": "ClockAccount",
-      "discriminator": [152, 171, 158, 195, 75, 61, 51, 8]
+      "discriminator": [
+        152,
+        171,
+        158,
+        195,
+        75,
+        61,
+        51,
+        8
+      ]
     },
     {
       "name": "Cluster",
-      "discriminator": [236, 225, 118, 228, 173, 106, 18, 60]
+      "discriminator": [
+        236,
+        225,
+        118,
+        228,
+        173,
+        106,
+        18,
+        60
+      ]
     },
     {
       "name": "ComputationDefinitionAccount",
-      "discriminator": [245, 176, 217, 221, 253, 104, 172, 200]
+      "discriminator": [
+        245,
+        176,
+        217,
+        221,
+        253,
+        104,
+        172,
+        200
+      ]
     },
     {
       "name": "FeePool",
-      "discriminator": [172, 38, 77, 146, 148, 5, 51, 242]
+      "discriminator": [
+        172,
+        38,
+        77,
+        146,
+        148,
+        5,
+        51,
+        242
+      ]
     },
     {
       "name": "MXEAccount",
-      "discriminator": [103, 26, 85, 250, 179, 159, 17, 117]
+      "discriminator": [
+        103,
+        26,
+        85,
+        250,
+        179,
+        159,
+        17,
+        117
+      ]
     },
     {
       "name": "SignerAccount",
-      "discriminator": [127, 212, 7, 180, 17, 50, 249, 193]
+      "discriminator": [
+        127,
+        212,
+        7,
+        180,
+        17,
+        50,
+        249,
+        193
+      ]
     },
     {
       "name": "UserAccount",
-      "discriminator": [211, 33, 136, 16, 186, 110, 242, 127]
+      "discriminator": [
+        211,
+        33,
+        136,
+        16,
+        186,
+        110,
+        242,
+        127
+      ]
+    },
+    {
+      "name": "VaultAccount",
+      "discriminator": [
+        230,
+        251,
+        241,
+        83,
+        139,
+        202,
+        93,
+        28
+      ]
     }
   ],
   "events": [
     {
+      "name": "BorrowEvent",
+      "discriminator": [
+        86,
+        8,
+        140,
+        206,
+        215,
+        179,
+        118,
+        201
+      ]
+    },
+    {
       "name": "DepositEvent",
-      "discriminator": [120, 248, 61, 83, 31, 142, 107, 144]
+      "discriminator": [
+        120,
+        248,
+        61,
+        83,
+        31,
+        142,
+        107,
+        144
+      ]
     },
     {
       "name": "HealthCheckEvent",
-      "discriminator": [210, 138, 51, 240, 62, 95, 100, 96]
+      "discriminator": [
+        210,
+        138,
+        51,
+        240,
+        62,
+        95,
+        100,
+        96
+      ]
     },
     {
       "name": "LiquidationCheckEvent",
-      "discriminator": [163, 21, 204, 136, 97, 65, 20, 162]
+      "discriminator": [
+        163,
+        21,
+        204,
+        136,
+        97,
+        65,
+        20,
+        162
+      ]
     },
     {
       "name": "RepayEvent",
-      "discriminator": [129, 213, 0, 108, 218, 108, 82, 140]
+      "discriminator": [
+        129,
+        213,
+        0,
+        108,
+        218,
+        108,
+        82,
+        140
+      ]
+    },
+    {
+      "name": "WithdrawEvent",
+      "discriminator": [
+        22,
+        9,
+        133,
+        26,
+        160,
+        44,
+        71,
+        192
+      ]
     }
   ],
   "errors": [
@@ -526,6 +1056,41 @@
       "code": 6003,
       "name": "RepayTooMuch",
       "msg": "Repay amount exceeds borrowed amount"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidAmount",
+      "msg": "Invalid repay amount"
+    },
+    {
+      "code": 6005,
+      "name": "VaultNotOwned",
+      "msg": "Vault account is not owned by this program"
+    },
+    {
+      "code": 6006,
+      "name": "NoPendingBorrow",
+      "msg": "No pending borrow to finalize"
+    },
+    {
+      "code": 6007,
+      "name": "InsufficientVaultFunds",
+      "msg": "Vault has insufficient funds"
+    },
+    {
+      "code": 6008,
+      "name": "OutstandingDebt",
+      "msg": "Position has outstanding debt or pending borrow"
+    },
+    {
+      "code": 6009,
+      "name": "InsufficientCollateral",
+      "msg": "Insufficient collateral to withdraw the requested amount"
+    },
+    {
+      "code": 6010,
+      "name": "CollateralRemaining",
+      "msg": "Cannot close account with remaining collateral"
     }
   ],
   "types": [
@@ -549,6 +1114,26 @@
                 "name": "Epoch"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BorrowEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_borrowed",
+            "type": "u64"
           }
         ]
       }
@@ -645,7 +1230,9 @@
     },
     {
       "name": "ClockAccount",
-      "docs": ["An account storing the current network epoch"],
+      "docs": [
+        "An account storing the current network epoch"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -714,7 +1301,10 @@
           {
             "name": "cu_price_proposals",
             "type": {
-              "array": ["u64", 32]
+              "array": [
+                "u64",
+                32
+              ]
             }
           },
           {
@@ -760,7 +1350,9 @@
     },
     {
       "name": "ComputationDefinitionAccount",
-      "docs": ["An account representing a [ComputationDefinition] in a MXE."],
+      "docs": [
+        "An account representing a [ComputationDefinition] in a MXE."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -799,7 +1391,9 @@
     },
     {
       "name": "ComputationDefinitionMeta",
-      "docs": ["A computation definition for execution in a MXE."],
+      "docs": [
+        "A computation definition for execution in a MXE."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -896,10 +1490,14 @@
     },
     {
       "name": "Epoch",
-      "docs": ["The network epoch"],
+      "docs": [
+        "The network epoch"
+      ],
       "type": {
         "kind": "struct",
-        "fields": ["u64"]
+        "fields": [
+          "u64"
+        ]
       }
     },
     {
@@ -922,13 +1520,19 @@
           {
             "name": "is_healthy_encrypted",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "nonce",
             "type": {
-              "array": ["u8", 16]
+              "array": [
+                "u8",
+                16
+              ]
             }
           }
         ]
@@ -942,13 +1546,19 @@
           {
             "name": "needs_liquidation_encrypted",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "nonce",
             "type": {
-              "array": ["u8", 16]
+              "array": [
+                "u8",
+                16
+              ]
             }
           }
         ]
@@ -967,7 +1577,9 @@
     },
     {
       "name": "MXEAccount",
-      "docs": ["A MPC Execution Environment."],
+      "docs": [
+        "A MPC Execution Environment."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -1064,7 +1676,10 @@
           {
             "name": "hash",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           }
         ]
@@ -1248,7 +1863,10 @@
           {
             "name": "encryption_key",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
@@ -1260,7 +1878,10 @@
             "type": {
               "array": [
                 {
-                  "array": ["u8", 32]
+                  "array": [
+                    "u8",
+                    32
+                  ]
                 },
                 {
                   "generic": "LEN"
@@ -1335,26 +1956,70 @@
           {
             "name": "x25519_pubkey",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "ed25519_verifying_key",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "elgamal_pubkey",
             "type": {
-              "array": ["u8", 32]
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
             "name": "pubkey_validity_proof",
             "type": {
-              "array": ["u8", 64]
+              "array": [
+                "u8",
+                64
+              ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "remaining_collateral",
+            "type": "u64"
           }
         ]
       }
