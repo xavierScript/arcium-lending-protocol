@@ -38,7 +38,7 @@ console.log("✔ Using payer:", payerKeypair.publicKey.toString());
 // ----------------------------------------
 
 const PROGRAM_ID = new PublicKey(
-  "5ZDZTQm8b86mojHbXfGtoY1gj3JpQGLeFyw3hqiDc1RT"
+  "CLLcUbHn9WtbyShMUvCHJeJR2vEXc8cmXQPYsjoq8RaD"
 );
 const CLUSTER_OFFSET = 1078779259; // devnet
 

@@ -24,8 +24,6 @@ pub struct FinalizeBorrow<'info> {
     #[account(mut, constraint = recipient.key() == user_account.owner)]
     /// CHECK: Recipient must be the owner recorded in the `UserAccount`.
     pub recipient: AccountInfo<'info>,
-
-    pub system_program: Program<'info, System>,
 }
 
 pub fn finalize_borrow(ctx: Context<FinalizeBorrow>) -> Result<()> {
@@ -40,19 +38,11 @@ pub fn finalize_borrow(ctx: Context<FinalizeBorrow>) -> Result<()> {
     let available = vault_lamports.checked_sub(rent_exempt).unwrap_or(0);
     require!(available >= amount, ErrorCode::InsufficientVaultFunds);
 
-    // Transfer lamports from vault (PDA owned by program) to recipient using PDA seeds
-    let vault_seeds = &[b"vault_v2".as_ref(), &[ctx.accounts.vault.bump]];
-    let signer_seeds = &[&vault_seeds[..]];
-    
-    let cpi_context = CpiContext::new_with_signer(
-        ctx.accounts.system_program.to_account_info(),
-        anchor_lang::system_program::Transfer {
-            from: ctx.accounts.vault.to_account_info(),
-            to: ctx.accounts.recipient.to_account_info(),
-        },
-        signer_seeds,
-    );
-    anchor_lang::system_program::transfer(cpi_context, amount)?;
+    // Transfer lamports from vault (program-owned PDA) to recipient
+    // We directly modify lamport balances because the vault is a PDA owned by this program
+    // and contains data, so we can't use system_program::transfer
+    ctx.accounts.vault.sub_lamports(amount)?;
+    ctx.accounts.recipient.add_lamports(amount)?;
 
     // Update user accounting
     user_account.borrowed_amount = user_account.borrowed_amount.checked_add(amount).unwrap();

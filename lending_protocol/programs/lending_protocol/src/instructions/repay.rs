@@ -11,9 +11,12 @@ pub struct Repay<'info> {
         bump = user_account.bump
     )]
     pub user_account: Account<'info, UserAccount>,
-    #[account(mut)]
-    /// CHECK: This is the vault account that holds deposited funds
-    pub vault: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault_v2"],
+        bump = vault.bump
+    )]
+    pub vault: Account<'info, crate::state::VaultAccount>,
     pub system_program: Program<'info, System>,
 }
 
@@ -21,9 +24,6 @@ pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
     let user_account = &mut ctx.accounts.user_account;
     // Prevent zero-value repay
     require!(amount > 0, ErrorCode::InvalidAmount);
-
-    // Ensure the vault is owned by this program (prevent vault substitution)
-    require!(ctx.accounts.vault.owner == ctx.program_id, ErrorCode::VaultNotOwned);
 
     require!(user_account.borrowed_amount >= amount, ErrorCode::RepayTooMuch);
     
