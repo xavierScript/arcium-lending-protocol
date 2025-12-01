@@ -48,6 +48,27 @@ import {
   compDefOffsetToU32,
   EncryptionKeys,
 } from "@/lib/arcium";
+import {
+  getComputationAccAddress,
+  getMXEAccAddress,
+  getMempoolAccAddress,
+  getExecutingPoolAccAddress,
+  getCompDefAccAddress,
+  getCompDefAccOffset,
+  getClusterAccAddress,
+  getArciumEnv,
+  deserializeLE,
+} from "@arcium-hq/client";
+
+// Helper to convert number[] from cipher.encrypt to Uint8Array[32]
+function numberArrayToBytes32(numbers: number[]): Uint8Array {
+  const result = new Uint8Array(32);
+  const length = Math.min(numbers.length, 32);
+  for (let i = 0; i < length; i++) {
+    result[i] = numbers[i] & 0xff;
+  }
+  return result;
+}
 
 import IDL from "@/components/idl/lending_protocol.json";
 export function usePrivateLending() {
@@ -745,17 +766,19 @@ export function usePrivateLending() {
         const collateralLamports = solToLamports(userPosition.collateralAmount);
 
         // Encrypt values for health check computation
-        // Note: We encrypt the NEW borrow amount, not the total debt
-        // The smart contract will add this to existing debt for health check
+        // According to Arcium docs: For Enc<Shared, T>, we need to encrypt individual values
+        // The circuit expects: collateral (u64) and new_borrow_amount (u64)
         const nonce = generateNonce();
-        const ciphertext = encryptValues(
-          keys.cipher,
-          collateralLamports, // Current collateral
-          borrowAmountLamports, // NEW borrow amount (not total!)
-          nonce
-        );
 
-        // Generate computation offset (matching template)
+        // Encrypt both values together as a plaintext array
+        const plaintext = [collateralLamports, borrowAmountLamports];
+        const ciphertext = keys.cipher.encrypt(plaintext, nonce);
+
+        // Convert to proper Uint8Array[32] format
+        const encryptedCollateral = numberArrayToBytes32(ciphertext[0]);
+        const encryptedBorrow = numberArrayToBytes32(ciphertext[1]);
+
+        // Generate computation offset (8 random bytes)
         const computationOffset = new BN(
           crypto.getRandomValues(new Uint8Array(8))
         );
@@ -809,22 +832,22 @@ export function usePrivateLending() {
         console.log("Calling borrow with params:", {
           computationOffset: computationOffset.toString(),
           borrowAmount: borrowAmountLamports.toString(),
-          encryptedCollateral: Array.from(ciphertext[0]),
-          encryptedBorrow: Array.from(ciphertext[1]),
+          encryptedCollateral: Array.from(encryptedCollateral),
+          encryptedBorrow: Array.from(encryptedBorrow),
           publicKey: Array.from(keys.publicKey),
           nonce: deserializeLE(nonce).toString(),
           collateralLamports: collateralLamports.toString(),
           newBorrowLamports: borrowAmountLamports.toString(),
         });
 
-        // Build instruction with proper types
-        // All byte arrays must be Uint8Array with exactly 32 bytes
-        const instruction = await program.methods
+        // Build transaction following Arcium documentation pattern
+        // Order: computationOffset, borrow_amount, encrypted_collateral, encrypted_borrow, pub_key, nonce
+        const transaction = await program.methods
           .borrow(
             computationOffset,
             new BN(borrowAmountLamports.toString()),
-            Array.from(ciphertext[0]), // [u8; 32]
-            Array.from(ciphertext[1]), // [u8; 32]
+            Array.from(encryptedCollateral), // [u8; 32]
+            Array.from(encryptedBorrow), // [u8; 32]
             Array.from(keys.publicKey), // [u8; 32]
             new BN(deserializeLE(nonce).toString())
           )
@@ -832,28 +855,26 @@ export function usePrivateLending() {
             payer: wallet.publicKey,
             userAccount: userAccountPDA,
             signPdaAccount: signerPDA,
-            computationAccount,
-            clusterAccount,
             mxeAccount,
             mempoolAccount,
             executingPool,
+            computationAccount,
             compDefAccount,
+            clusterAccount,
             poolAccount: ARCIUM_FEE_POOL_ACCOUNT,
             clockAccount: ARCIUM_CLOCK_ACCOUNT,
             systemProgram: SystemProgram.programId,
             arciumProgram: ARCIUM_PROGRAM_ID,
           })
-          .instruction();
+          .transaction();
 
-        if (!program.provider.sendAndConfirm) {
-          throw new Error("Provider does not support sendAndConfirm");
-        }
+        // Send transaction using wallet adapter
+        const tx = await wallet.sendTransaction(transaction, connection, {
+          skipPreflight: true,
+        });
 
-        const tx = await program.provider.sendAndConfirm(
-          new Transaction().add(instruction),
-          [],
-          { skipPreflight: true, commitment: "confirmed" }
-        );
+        // Confirm transaction
+        await connection.confirmTransaction(tx, "confirmed");
 
         // Wait a moment for the transaction to settle
         await new Promise((resolve) => setTimeout(resolve, 1500));
