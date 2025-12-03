@@ -492,10 +492,6 @@ anchor test --provider.cluster devnet
 - [ ] Oracle price feeds integration
 - [ ] Mobile app
 
-## 🤝 Contributing
-
-This project was built for the Arcium Bounty Program. Contributions welcome after bounty period ends.
-
 ## 📚 Resources
 
 - [Arcium Documentation](https://docs.arcium.com)
