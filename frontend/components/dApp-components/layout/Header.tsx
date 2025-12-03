@@ -30,10 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="glass-card rounded-2xl p-4 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 relative z-50">
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <div className="w-10 h-10 rounded-xl bg-[#00ff9d]/10 flex items-center justify-center border border-[#00ff9d]/20">
-          <Shield className="w-6 h-6 text-[#00ff9d]" />
+        <div className="w-16 h-16 flex items-center justify-center">
+          <img src="/logo.png" alt="ZKredit Logo" className="w-full h-full object-contain" />
         </div>
-        <span className="text-xl font-bold text-white tracking-tight">ZKredit</span>
+        
       </Link>
 
       <div className="flex items-center bg-black/20 rounded-full p-1 border border-white/5">

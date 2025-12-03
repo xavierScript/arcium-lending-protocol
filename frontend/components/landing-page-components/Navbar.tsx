@@ -12,10 +12,10 @@ export const Navbar = () => {
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-xl bg-[#00ff9d]/10 flex items-center justify-center group-hover:bg-[#00ff9d]/20 transition-colors">
-            <Shield className="w-6 h-6 text-[#00ff9d]" />
+          <div className="w-16 h-16 flex items-center justify-center">
+            <img src="/logo.png" alt="ZKredit Logo" className="w-full h-full object-contain" />
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">ZKredit</span>
+         
         </Link>
 
         {/* Desktop Navigation */}
