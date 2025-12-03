@@ -502,16 +502,6 @@ This project was built for the Arcium Bounty Program. Contributions welcome afte
 - [Anchor Framework](https://www.anchor-lang.com)
 - [Solana Cookbook](https://solanacookbook.com)
 
-## 📧 Contact
-
-**Developer**: xavierScript  
-**GitHub**: [@xavierScript](https://github.com/xavierScript)  
-**Discord**: [Arcium Server](https://discord.gg/arcium)
-
-## 📄 License
-
-MIT License - See [LICENSE](LICENSE) file for details
-
 ---
 
 **Built with ❤️ for the Arcium Bounty Program**  
