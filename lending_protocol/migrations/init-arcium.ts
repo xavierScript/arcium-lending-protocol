@@ -38,9 +38,11 @@ console.log("✔ Using payer:", payerKeypair.publicKey.toString());
 // ----------------------------------------
 
 const PROGRAM_ID = new PublicKey(
-  "CLLcUbHn9WtbyShMUvCHJeJR2vEXc8cmXQPYsjoq8RaD"
+  "AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA"
 );
-const CLUSTER_OFFSET = 1078779259; // devnet
+const CLUSTER_OFFSET = 768109697; // devnet v0.3.0 (keys should be set)
+// const CLUSTER_OFFSET = 3726127828; // devnet v0.3.0 (keys not set)
+// const CLUSTER_OFFSET = 768109697; // devnet v0.4.0 (keys not set)
 
 async function main() {
   // Setup connection
@@ -68,6 +70,41 @@ async function main() {
 
   console.log("MXE Account:", mxeAccount.toString());
   console.log("Cluster Account:", clusterAccount.toString());
+
+  // Fetch and display MXE account data
+  try {
+    const mxeAccountInfo = await connection.getAccountInfo(mxeAccount);
+    if (mxeAccountInfo) {
+      console.log("\n=== MXE Account Data ===");
+      console.log("Data length:", mxeAccountInfo.data.length);
+      console.log(
+        "Raw bytes (first 100):",
+        Array.from(mxeAccountInfo.data.slice(0, 100))
+      );
+
+      // Parse MXE account structure
+      const utilityPubkeysOffset = 8 + 33 + 5; // discriminator + authority + cluster
+      const isSet = mxeAccountInfo.data[utilityPubkeysOffset];
+      console.log("\nUtility pubkeys set?:", isSet === 1 ? "YES" : "NO");
+
+      if (isSet === 1) {
+        const pubKeyStart = utilityPubkeysOffset + 1;
+        const pubKeyEnd = pubKeyStart + 32;
+        const x25519PubKey = mxeAccountInfo.data.slice(pubKeyStart, pubKeyEnd);
+        console.log("x25519 public key:", Array.from(x25519PubKey));
+
+        const isAllZeros = x25519PubKey.every((byte) => byte === 0);
+        console.log(
+          "Keys all zeros?:",
+          isAllZeros ? "YES (DKG not complete)" : "NO (DKG complete!)"
+        );
+      }
+    } else {
+      console.log("⚠️ MXE account not found");
+    }
+  } catch (e) {
+    console.error("Error fetching MXE account:", e);
+  }
 
   // Get comp def offsets
   const healthCheckOffsetBytes = getCompDefAccOffset("check_health_factor");
