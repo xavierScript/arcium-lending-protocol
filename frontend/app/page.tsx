@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/landing-page-components/Navbar";
 import { Hero } from "@/components/landing-page-components/Hero";
-import { Stats } from "@/components/landing-page-components/Stats";
+
 import { Features } from "@/components/landing-page-components/Features";
 import { Partners } from "@/components/landing-page-components/Partners";
 import { FAQ } from "@/components/landing-page-components/FAQ";
@@ -12,7 +12,7 @@ export default function Home() {
       <div className="ambient-glow-blue" />
       <Navbar />
       <Hero />
-      <Stats />
+      
       <Features />
       <FAQ />
       <Partners />

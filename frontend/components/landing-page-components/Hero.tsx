@@ -13,7 +13,7 @@ export const Hero = () => {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8 animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse" />
-            <span className="text-sm text-gray-300">Protocol V1 is now live on Mainnet</span>
+            <span className="text-sm text-gray-300">Protocol V1 is Coming to Mainnet Soon</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight leading-tight">
@@ -30,22 +30,10 @@ export const Hero = () => {
               Start Lending
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
-            <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-              Read Whitepaper
-            </Button>
+            
           </div>
 
-          {/* Trust Badges */}
-          <div className="mt-16 pt-8 border-t border-white/5 flex flex-wrap justify-center gap-8 md:gap-16 opacity-70">
-            <div className="flex items-center gap-2 text-gray-400">
-              <ShieldCheck className="w-5 h-5 text-[#00ff9d]" />
-              <span>Audited by Trail of Bits</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-400">
-              <Lock className="w-5 h-5 text-[#00ff9d]" />
-              <span>ZK-SNARKs Powered</span>
-            </div>
-          </div>
+        
         </div>
       </div>
     </section>
