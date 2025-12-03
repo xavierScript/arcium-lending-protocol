@@ -27,9 +27,6 @@ import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import type { UserPosition, TransactionResult, UserAccount } from "../types";
 import {
   PROGRAM_ID,
-  ARCIUM_PROGRAM_ID,
-  ARCIUM_CLOCK_ACCOUNT,
-  ARCIUM_FEE_POOL_ACCOUNT,
   LIQUIDATION_THRESHOLD,
   ARCIUM_CLUSTER_OFFSET,
 } from "@/lib/constants";
@@ -85,11 +82,23 @@ export function usePrivateLending() {
   const [vaultInitialized, setVaultInitialized] = useState<boolean | null>(
     null
   );
+  const [mxeStatus, setMxeStatus] = useState<string | null>(null);
 
   // Fetch serialization/debounce refs
   const fetchMutexRef = useRef(false);
   const pendingFetchRef = useRef(false);
   const fetchDebounceRef = useRef<number | null>(null);
+
+  // Cache for user accounts to reduce RPC calls
+  const userAccountsCacheRef = useRef<{
+    data: {
+      totalUsers: number;
+      totalDepositors: number;
+      totalBorrowed: number;
+    } | null;
+    timestamp: number;
+  }>({ data: null, timestamp: 0 });
+  const CACHE_DURATION = 30000; // 30 seconds cache
 
   // Derive vault PDA
   const getVaultPDA = useCallback(() => {
@@ -234,6 +243,77 @@ export function usePrivateLending() {
     }
   }, [wallet.publicKey, program, getUserAccountPDA]);
 
+  // Fetch all user accounts to calculate protocol statistics (with caching)
+  const fetchAllUserAccounts = useCallback(async () => {
+    if (!program)
+      return { totalUsers: 0, totalDepositors: 0, totalBorrowed: 0 };
+
+    // Check cache first to reduce RPC calls
+    const now = Date.now();
+    const cache = userAccountsCacheRef.current;
+    if (cache.data && now - cache.timestamp < CACHE_DURATION) {
+      console.log("Using cached user account data");
+      return cache.data;
+    }
+
+    try {
+      console.log("Fetching fresh user account data from RPC...");
+      // Fetch all program accounts with the "user" discriminator
+      const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+        filters: [
+          {
+            dataSize: 8 + 32 + 8 + 8 + 8 + 1 + 1, // discriminator + UserAccount size
+          },
+        ],
+      });
+
+      const totalUsers = accounts.length;
+      let totalDepositors = 0;
+      let totalBorrowed = 0;
+
+      accounts.forEach((account: any) => {
+        try {
+          // Decode the account data
+          const userData = program.coder.accounts.decode(
+            "UserAccount",
+            account.account.data
+          );
+
+          if (
+            userData.depositedCollateral &&
+            userData.depositedCollateral.toNumber() > 0
+          ) {
+            totalDepositors++;
+          }
+          if (userData.borrowedAmount) {
+            totalBorrowed += lamportsToSol(userData.borrowedAmount.toNumber());
+          }
+        } catch (decodeError) {
+          // Skip accounts that fail to decode
+          console.warn("Failed to decode account:", decodeError);
+        }
+      });
+
+      const result = { totalUsers, totalDepositors, totalBorrowed };
+
+      // Update cache
+      userAccountsCacheRef.current = {
+        data: result,
+        timestamp: now,
+      };
+
+      return result;
+    } catch (error) {
+      console.error("Error fetching user accounts:", error);
+      // Return cached data if available, even if expired
+      if (cache.data) {
+        console.log("Using stale cache due to error");
+        return cache.data;
+      }
+      return { totalUsers: 0, totalDepositors: 0, totalBorrowed: 0 };
+    }
+  }, [program, connection]);
+
   // Fetch pool/vault statistics (visible to all users)
   const fetchPoolStats = useCallback(async () => {
     if (!program) return;
@@ -254,32 +334,27 @@ export function usePrivateLending() {
       );
       const availableLiquidity = vaultBalance - rentExempt;
 
-      // Calculate total borrowed by summing all user accounts
-      // Note: This is a simplified approach. For production, you'd want to
-      // maintain this as a global state variable in the smart contract
-      let totalBorrowed = 0;
-
-      // For now, we'll estimate based on vault deposits vs current balance
-      // In production, add a global stats account to track this properly
+      // Fetch user statistics
+      const { totalUsers, totalDepositors, totalBorrowed } =
+        await fetchAllUserAccounts();
 
       const totalLiquiditySol = lamportsToSol(availableLiquidity);
-      const totalBorrowedSol = totalBorrowed; // Will be 0 for now
       const utilizationRate =
-        totalLiquiditySol > 0
-          ? (totalBorrowedSol / totalLiquiditySol) * 100
-          : 0;
+        totalLiquiditySol > 0 ? (totalBorrowed / totalLiquiditySol) * 100 : 0;
 
       setPoolStats({
         totalLiquidity: totalLiquiditySol,
-        totalBorrowed: totalBorrowedSol,
+        totalBorrowed,
         utilizationRate,
         avgAPY: 5.5, // Placeholder - calculate based on utilization in production
+        totalUsers,
+        totalDepositors,
       });
     } catch (error) {
       console.error("Error fetching pool stats:", error);
       setPoolStats(null);
     }
-  }, [program, connection, getVaultPDA]);
+  }, [program, connection, getVaultPDA, fetchAllUserAccounts]);
 
   // Check if vault is initialized
   const checkVaultInitialized = useCallback(async (): Promise<boolean> => {
@@ -743,12 +818,17 @@ export function usePrivateLending() {
       let keys = encryptionKeys;
       if (!keys) {
         try {
+          setMxeStatus("Checking Arcium MXE cluster status...");
           const provider = new AnchorProvider(connection, wallet as any, {
             commitment: "confirmed",
           });
           keys = await initializeEncryption(provider, PROGRAM_ID);
           setEncryptionKeys(keys);
+          setMxeStatus("MXE keys ready ✅");
+          // Clear status after a moment
+          setTimeout(() => setMxeStatus(null), 2000);
         } catch (error: any) {
+          setMxeStatus(null);
           return {
             success: false,
             error: `Encryption initialization failed: ${error.message}. Make sure Arcium localnet is running.`,
@@ -841,6 +921,7 @@ export function usePrivateLending() {
         });
 
         // Build transaction following Arcium documentation pattern
+        // Use .accountsPartial() to let Anchor auto-resolve remaining accounts
         // Order: computationOffset, borrow_amount, encrypted_collateral, encrypted_borrow, pub_key, nonce
         const transaction = await program.methods
           .borrow(
@@ -851,7 +932,7 @@ export function usePrivateLending() {
             Array.from(keys.publicKey), // [u8; 32]
             new BN(deserializeLE(nonce).toString())
           )
-          .accounts({
+          .accountsPartial({
             payer: wallet.publicKey,
             userAccount: userAccountPDA,
             signPdaAccount: signerPDA,
@@ -861,10 +942,8 @@ export function usePrivateLending() {
             computationAccount,
             compDefAccount,
             clusterAccount,
-            poolAccount: ARCIUM_FEE_POOL_ACCOUNT,
-            clockAccount: ARCIUM_CLOCK_ACCOUNT,
-            systemProgram: SystemProgram.programId,
-            arciumProgram: ARCIUM_PROGRAM_ID,
+            // Note: poolAccount, clockAccount, systemProgram, arciumProgram
+            // are auto-resolved by Anchor based on the #[queue_computation_accounts] macro
           })
           .transaction();
 
@@ -1309,6 +1388,7 @@ export function usePrivateLending() {
     poolStats,
     program,
     vaultInitialized,
+    mxeStatus,
 
     // Actions
     initializeArciumCompDefs,

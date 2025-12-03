@@ -1,4 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
+import { getArciumProgAddress } from "@arcium-hq/client";
 
 // Network Configuration
 export const NETWORK =
@@ -13,23 +14,22 @@ export const RPC_ENDPOINT =
 // Program IDs
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID ||
-    "CLLcUbHn9WtbyShMUvCHJeJR2vEXc8cmXQPYsjoq8RaD"
+    "AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA"
 );
 
-// Arcium MPC Configuration
-export const ARCIUM_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_ARCIUM_PROGRAM_ID ||
-    "Bv3Fb9VjzjWGfX18QTUcVycAfeLoQ5zZN6vv2g3cTZxp"
-);
+// Arcium MPC Configuration - Derived from Arcium SDK
+// The Arcium program ID is derived from the SDK (environment-aware)
+export const ARCIUM_PROGRAM_ID = getArciumProgAddress();
 
+// Arcium Clock and Fee Pool accounts
+// These are hardcoded constants from arcium_anchor that match the deployed accounts
+// For localnet: These come from artifacts/arcium_clock.json and arcium_fee_pool.json
+// For devnet/testnet: These would be different (obtained from Arcium deployment)
 export const ARCIUM_CLOCK_ACCOUNT = new PublicKey(
-  process.env.NEXT_PUBLIC_ARCIUM_CLOCK_ACCOUNT ||
-    "AxygBawEvVwZPetj3yPJb9sGdZvaJYsVguET1zFUQkV"
+  "AxygBawEvVwZPetj3yPJb9sGdZvaJYsVguET1zFUQkV"
 );
-
 export const ARCIUM_FEE_POOL_ACCOUNT = new PublicKey(
-  process.env.NEXT_PUBLIC_ARCIUM_FEE_POOL_ACCOUNT ||
-    "FsWbPQcJQ2cCyr9ndse13fDqds4F2Ezx2WgTL25Dke4M"
+  "FsWbPQcJQ2cCyr9ndse13fDqds4F2Ezx2WgTL25Dke4M"
 );
 
 // Arcium Cluster Configuration

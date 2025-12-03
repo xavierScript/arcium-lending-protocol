@@ -10,6 +10,7 @@ interface BorrowFormProps {
   onFinalizeBorrow?: () => Promise<void>;
   calculateHealthFactor: (collateral: number, borrowed: number) => number;
   getHealthFactorColor: (hf: number) => string;
+  mxeStatus?: string | null;
 }
 
 export const BorrowForm: React.FC<BorrowFormProps> = ({
@@ -19,6 +20,7 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
   onFinalizeBorrow,
   calculateHealthFactor,
   getHealthFactorColor,
+  mxeStatus,
 }) => {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +69,21 @@ export const BorrowForm: React.FC<BorrowFormProps> = ({
         </p>
       </div>
 
-      {!hasPendingBorrow && (
+      {mxeStatus && (
+        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+          <div className="flex items-start space-x-3">
+            <Clock className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0 animate-spin" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-yellow-400 mb-1">
+                Arcium MXE Initialization
+              </h4>
+              <p className="text-sm text-gray-300">{mxeStatus}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!hasPendingBorrow && !mxeStatus && (
         <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
           <div className="flex items-start space-x-3">
             <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />

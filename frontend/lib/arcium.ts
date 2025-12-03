@@ -8,6 +8,9 @@ import {
   getExecutingPoolAccAddress,
   getComputationAccAddress,
   getClusterAccAddress,
+  getArciumProgAddress,
+  getCompDefAccOffset,
+  getArciumAccountBaseSeed,
   RescueCipher,
   deserializeLE,
   getArciumEnv,
@@ -69,15 +72,7 @@ export async function initializeEncryption(
       throw new Error(`Invalid MXE public key: length=${mxePublicKey?.length}`);
     }
 
-    // Check if MXE public key is all zeros (not initialized)
-    const isAllZeros = mxePublicKey.every((byte) => byte === 0);
-    if (isAllZeros) {
-      throw new Error(
-        "MXE public key is all zeros. MXE account may not be fully initialized by Arcium network."
-      );
-    }
-
-    console.log("✓ MXE public key is valid (not all zeros)");
+    console.log("✓ MXE public key extracted successfully");
 
     // Generate keypair for x25519 key exchange (matching template pattern)
     const privateKey = x25519.utils.randomSecretKey();
@@ -174,25 +169,41 @@ export function getArciumAccounts(
 }
 
 /**
- * Get computation definition account address
+ * Get computation definition account address (properly derived from Arcium program)
+ * This matches the pattern from the working test file
  */
 export function getCompDefAccount(
   programId: PublicKey,
   compDefName: string
 ): PublicKey {
-  // Health check or liquidation check
-  const offset = compDefName === "check_health_factor" ? 0 : 1;
-  return getCompDefAccAddress(programId, offset);
+  const baseSeed = getArciumAccountBaseSeed("ComputationDefinitionAccount");
+  const offset = getCompDefAccOffset(compDefName);
+  const arciumProgramId = getArciumProgAddress();
+
+  const [compDefPDA] = PublicKey.findProgramAddressSync(
+    [baseSeed, programId.toBuffer(), offset],
+    arciumProgramId
+  );
+
+  return compDefPDA;
 }
 
 /**
  * Get cluster account address
  */
-export function getClusterAccount(clusterOffset?: number): PublicKey {
+export function getClusterAccount(clusterOffset?: number | null): PublicKey {
   if (clusterOffset !== null && clusterOffset !== undefined) {
     return getClusterAccAddress(clusterOffset);
   }
   return getArciumEnv().arciumClusterPubkey;
+}
+
+/**
+ * Get Arcium program ID (not to be confused with your lending program ID)
+ * This is the actual Arcium MPC program address
+ */
+export function getArciumProgramId(): PublicKey {
+  return getArciumProgAddress();
 }
 
 /**
@@ -248,22 +259,109 @@ export function isHealthy(
 }
 
 /**
+ * Wait for DKG (Distributed Key Generation) to complete
+ * Polls the MXE account until utility pubkeys are set with non-zero keys
+ */
+export async function waitForDKG(
+  connection: Connection,
+  programId: PublicKey,
+  maxRetries: number = 30,
+  delayMs: number = 2000
+): Promise<boolean> {
+  const mxeAccount = getMXEAccAddress(programId);
+  console.log("⏳ Waiting for DKG ceremony to complete...");
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const accountInfo = await connection.getAccountInfo(mxeAccount);
+      if (!accountInfo) {
+        console.log(
+          `❌ Attempt ${attempt}/${maxRetries}: MXE account not found`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      // Check utility_pubkeys offset
+      const utilityPubkeysOffset = 8 + 33 + 5; // discriminator + authority + cluster
+      const isSet = accountInfo.data[utilityPubkeysOffset];
+
+      if (isSet === 1) {
+        // Check if keys are non-zero
+        const pubKeyStart = utilityPubkeysOffset + 1;
+        const x25519PubKey = accountInfo.data.slice(
+          pubKeyStart,
+          pubKeyStart + 32
+        );
+        const hasKeys = x25519PubKey.some((byte) => byte !== 0);
+
+        if (hasKeys) {
+          console.log("✅ DKG complete! MXE keys are ready.");
+          return true;
+        }
+      }
+
+      console.log(
+        `⏳ Attempt ${attempt}/${maxRetries}: DKG not complete yet...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    } catch (error) {
+      console.log(
+        `❌ Attempt ${attempt}/${maxRetries}: Error checking DKG -`,
+        error
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.log("❌ DKG did not complete within timeout period");
+  return false;
+}
+
+/**
  * Retry helper for MXE public key retrieval
+ * Based on Arcium migration docs v0.2.0 recommendation
  */
 export async function getMXEPublicKeyWithRetry(
   provider: AnchorProvider,
   programId: PublicKey,
-  maxRetries: number = 5,
-  delayMs: number = 1000
+  maxRetries: number = 20,
+  delayMs: number = 500
 ): Promise<Uint8Array> {
-  for (let i = 0; i < maxRetries; i++) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const key = await getMXEPublicKey(provider, programId);
-      if (key) return key;
-      throw new Error("MXE public key is null");
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (key && key.length === 32) {
+        // Verify it's not all zeros
+        const isValid = key.some((byte) => byte !== 0);
+        if (isValid) {
+          console.log(
+            `✅ MXE public key retrieved on attempt ${attempt}/${maxRetries}`
+          );
+          return key;
+        }
+      }
+      throw new Error("MXE public key is null or all zeros (DKG not complete)");
+    } catch (error: any) {
+      console.log(
+        `⏳ Attempt ${attempt}/${maxRetries} - MXE keys not ready yet`
+      );
+
+      if (attempt >= maxRetries) {
+        throw new Error(
+          `❌ DKG has not completed after ${maxRetries} attempts.\n\n` +
+            `All tested devnet clusters have zero MXE keys. Options:\n` +
+            `1. Use Arcium localnet: Set NEXT_PUBLIC_ARCIUM_CLUSTER_OFFSET to empty and run 'arcium localnet start'\n` +
+            `2. Wait for Arcium team to run DKG on devnet clusters\n` +
+            `3. Contact Arcium Discord for active devnet clusters with completed DKG\n\n` +
+            `Your code is correct - the network just needs DKG to complete.`
+        );
+      }
+
+      if (attempt < maxRetries) {
+        console.log(`   Retrying in ${delayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
   throw new Error("Failed to get MXE public key");

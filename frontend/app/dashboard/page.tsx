@@ -24,6 +24,7 @@ const ArciumPrivateLending = () => {
     poolStats,
     program,
     vaultInitialized,
+    mxeStatus,
     checkCompDefsInitialized,
     checkVaultInitialized,
     initializeUser,
@@ -77,15 +78,20 @@ const ArciumPrivateLending = () => {
     }
   }, [connected, program, fetchPoolStats]);
 
-  // Auto-refresh data (reduced frequency) - but don't do initial fetch
+  // Auto-refresh data (reduced frequency to avoid rate limits)
   // The hook already fetches on wallet connection
   useEffect(() => {
     if (connected && program && userPosition) {
       // Only start polling if user account exists
+      let userRefreshCount = 0;
       const interval = setInterval(() => {
         fetchUserPosition();
-        fetchPoolStats();
-      }, 60000);
+        // Refresh pool stats less frequently (every 3 minutes instead of every minute)
+        userRefreshCount++;
+        if (userRefreshCount % 3 === 0) {
+          fetchPoolStats();
+        }
+      }, 60000); // Check every 60 seconds
       return () => clearInterval(interval);
     }
   }, [connected, program, userPosition, fetchUserPosition, fetchPoolStats]);
@@ -339,7 +345,7 @@ const ArciumPrivateLending = () => {
           explorerUrl,
           "View on Solana Explorer"
         );
-        setUserStats((prev) => ({ ...prev, xp: prev.xp + 10 }));
+        setUserStats((prev) => ({ ...prev, xp: prev.xp + 5 }));
       } else {
         showError("Withdrawal Failed", result.error || "Transaction failed");
       }
@@ -626,6 +632,8 @@ const ArciumPrivateLending = () => {
                     poolStats={poolStats}
                     loading={loading}
                     showPrivateInfo={showPrivateInfo}
+                    mxeStatus={mxeStatus}
+                    network="devnet"
                     calculateHealthFactor={calculateHealthFactor}
                     getHealthFactorColor={getHealthFactorColor}
                     getHealthFactorBg={getHealthFactorBg}

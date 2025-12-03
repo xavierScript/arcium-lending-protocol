@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import { ProtocolStatsCard } from "../cards/ProtocolStatsCard";
 import { UserPositionCard } from "../cards/UserPositionCard";
+import { TransactionHistoryCard } from "../cards/TransactionHistoryCard";
 import { DepositForm } from "../forms/DepositForm";
 import { BorrowForm } from "../forms/BorrowForm";
 import { RepayForm } from "../forms/RepayForm";
@@ -15,6 +16,8 @@ interface LendingTabProps {
   poolStats: PoolStats | null;
   loading: boolean;
   showPrivateInfo: boolean;
+  mxeStatus?: string | null;
+  network?: "devnet" | "mainnet-beta" | "localnet";
   calculateHealthFactor: (collateral: number, borrowed: number) => number;
   getHealthFactorColor: (hf: number) => string;
   getHealthFactorBg: (hf: number) => string;
@@ -30,6 +33,8 @@ export const LendingTab: React.FC<LendingTabProps> = ({
   poolStats,
   loading,
   showPrivateInfo,
+  mxeStatus,
+  network = "devnet",
   calculateHealthFactor,
   getHealthFactorColor,
   getHealthFactorBg,
@@ -46,6 +51,7 @@ export const LendingTab: React.FC<LendingTabProps> = ({
     { id: "borrow", label: "Borrow" },
     { id: "repay", label: "Repay" },
     { id: "withdraw", label: "Withdraw" },
+    { id: "history", label: "History" },
   ];
 
   return (
@@ -101,6 +107,7 @@ export const LendingTab: React.FC<LendingTabProps> = ({
                 onFinalizeBorrow={onFinalizeBorrow}
                 calculateHealthFactor={calculateHealthFactor}
                 getHealthFactorColor={getHealthFactorColor}
+                mxeStatus={mxeStatus}
               />
             )}
 
@@ -122,6 +129,12 @@ export const LendingTab: React.FC<LendingTabProps> = ({
                 calculateHealthFactor={calculateHealthFactor}
                 getHealthFactorColor={getHealthFactorColor}
               />
+            )}
+
+            {activeTab === "history" && (
+              <div className="p-0 -m-6">
+                <TransactionHistoryCard network={network} />
+              </div>
             )}
           </div>
         </div>

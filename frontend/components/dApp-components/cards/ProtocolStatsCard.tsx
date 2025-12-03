@@ -16,6 +16,20 @@ export const ProtocolStatsCard: React.FC<ProtocolStatsCardProps> = ({
         Protocol Stats
       </h2>
       <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-sm text-gray-400 mb-1">Total Users</div>
+            <div className="text-2xl font-bold text-white">
+              {poolStats?.totalUsers || 0}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-400 mb-1">Active Depositors</div>
+            <div className="text-2xl font-bold text-white">
+              {poolStats?.totalDepositors || 0}
+            </div>
+          </div>
+        </div>
         <div>
           <div className="text-sm text-gray-400 mb-1">Total Liquidity</div>
           <div className="text-2xl font-bold text-white">

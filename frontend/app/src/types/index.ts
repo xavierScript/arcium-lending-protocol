@@ -30,6 +30,17 @@ export interface PoolStats {
   totalBorrowed: number;
   utilizationRate: number;
   avgAPY: number;
+  totalUsers: number;
+  totalDepositors: number;
+}
+
+export interface TransactionHistory {
+  signature: string;
+  type: "deposit" | "withdraw" | "borrow" | "repay";
+  amount: number; // in SOL
+  timestamp: Date;
+  status: "confirmed" | "failed" | "pending";
+  user: PublicKey;
 }
 
 export interface Achievement {
