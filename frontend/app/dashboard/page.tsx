@@ -11,7 +11,6 @@ import type { UserPosition, PoolStats } from "@/app/src/types";
 import { LendingTab } from "@/components/dApp-components/tabs/LendingTab";
 import { Header } from "@/components/dApp-components/layout/Header";
 import { AnalyticsTab } from "@/components/dApp-components/tabs/AnalyticsTab";
-import { AchievementsTab } from "@/components/dApp-components/tabs/AchivementsTab";
 
 const ArciumPrivateLending = () => {
   // Wallet and hooks
@@ -649,9 +648,6 @@ const ArciumPrivateLending = () => {
                     poolStats={poolStats}
                     userPosition={userPosition}
                   />
-                )}
-                {activeTab === "achievements" && (
-                  <AchievementsTab userStats={userStats} />
                 )}
               </>
             )}

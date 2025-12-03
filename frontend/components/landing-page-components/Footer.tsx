@@ -31,13 +31,13 @@ export const Footer = () => {
                 </p>
                 <div className="flex gap-4">
                   <a
-                    href="#"
+                    href="https://x.com/zypherkredit"
                     className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#00ff9d]/20 hover:text-[#00ff9d] hover:border-[#00ff9d]/30 transition-all"
                   >
                     <Twitter className="w-5 h-5" />
                   </a>
                   <a
-                    href="#"
+                    href="https://github.com/xavierScript/arcium-lending-protocol"
                     className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#00ff9d]/20 hover:text-[#00ff9d] hover:border-[#00ff9d]/30 transition-all"
                   >
                     <Github className="w-5 h-5" />
