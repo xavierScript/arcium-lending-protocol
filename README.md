@@ -12,11 +12,21 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 
 ---
 
+## 🎥 Video Demo
+
+- Full demo walkthrough
+  [https://youtu.be/nvp5XnGv81s]
+
+## 📝 Technical Article
+
+- Deep dive into what we built and how it works
+  [https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial]s
+
+---
+
 ## 📋 Software Development Lifecycle
 
 ### 1. 🔬 Product Research & Analysis
-
-**Research Article:** [Insert link to research article on DeFi privacy challenges and lending protocol analysis]
 
 Our research phase involved:
 
@@ -39,11 +49,19 @@ Our research phase involved:
 
 **Figma Design Files:**
 
-- [Insert Figma link - UI/UX Mockups: Landing Page & Dashboard]
-- [Insert Figma link - User Flow Diagrams: Deposit, Borrow, Liquidation]
-- [Insert Figma link - Component Library & Design System]
+- **UI/UX Mockups:**
+  ![Slide 1](docs/images/Presentation-1.png)
 
-The design phase focused on:
+- **User Flow Diagrams:**
+  ![Slide 2](docs/images/Presentation-2.png)
+
+- **Component Library:**
+  ![Slide 3](docs/images/Presentation-3.png)
+
+- **Architecture Diagram:**
+  ![System architecture & data flow](docs/images/Flow-Chart.png)
+
+**Design Approach:**
 
 - Creating intuitive user interfaces for complex DeFi operations with encrypted data
 - Designing clear visual indicators distinguishing encrypted vs. public information
@@ -140,91 +158,6 @@ This protocol solves this privacy problem by leveraging **Arcium's confidential 
 ✅ **Private Liquidations**: Liquidation eligibility verified without revealing positions  
 ✅ **On-chain Solvency**: Protocol remains solvent through cryptographic guarantees
 
-## 🏗️ Architecture
-
-### Two-Layer Design
-
-```
-┌─────────────────────────────────────────────────────┐
-│         PUBLIC LAYER (Anchor Program)               │
-│  - Account management                               │
-│  - Deposits & Repayments                            │
-│  - Fund transfers                                   │
-└─────────────────────┬───────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────┐
-│      PRIVATE LAYER (Arcium Encrypted State)         │
-│  - Health factor calculations                       │
-│  - Liquidation checks                               │
-│  - Interest rate computations                       │
-└─────────────────────────────────────────────────────┘
-```
-
-### Key Components
-
-#### 1. **Solana Program** (`programs/lending_protocol/`)
-
-- Built with Anchor framework
-- Handles public state (deposits, withdrawals, repayments)
-- Integrates with Arcium for private computations
-
-#### 2. **Encrypted Instructions** (`encrypted-ixs/`)
-
-Written in Arcium's `arcis` language:
-
-- `check_health_factor()`: Validates LTV ratio privately
-- `check_liquidation()`: Checks liquidation eligibility without revealing position
-
-#### 3. **Frontend dApp** (`frontend/`)
-
-- Next.js + TypeScript
-- Solana wallet integration
-- Arcium SDK for encryption
-- Real-time position monitoring
-
-## 🔒 Privacy Guarantees
-
-| Data               | Visibility | Privacy Method               |
-| ------------------ | ---------- | ---------------------------- |
-| Collateral Amount  | Private    | Encrypted during computation |
-| Borrowed Amount    | Private    | Encrypted during computation |
-| Health Factor      | Private    | Computed in Arcium MXE       |
-| Liquidation Status | Private    | MPC threshold check          |
-| Interest Accrued   | Private    | Encrypted state transition   |
-
-## 🚀 How It Works
-
-### Borrow Flow (Two-Step Process)
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Solana Program
-    participant Arcium MXE
-
-    User->>Frontend: Request Borrow (amount)
-    Frontend->>Frontend: Encrypt collateral & borrow data
-    Frontend->>Solana Program: Submit borrow() with encrypted data
-    Solana Program->>Arcium MXE: Queue health check computation
-    Solana Program->>User: Set pending_borrow
-
-    Note over Arcium MXE: MPC nodes perform<br/>encrypted health check
-
-    Arcium MXE-->>Solana Program: Computation complete (encrypted result)
-
-    User->>Solana Program: Call finalizeBorrow()
-    Solana Program->>Solana Program: Verify health check passed
-    Solana Program->>User: Transfer borrowed funds
-```
-
-### Key Protocol Parameters
-
-- **Liquidation Threshold**: 80% LTV
-- **Collateral Factor**: 100%
-- **Health Factor Formula**: `(collateral × 0.8) / borrowed ≥ 1.0`
-
 ## 📁 Project Structure
 
 ```
@@ -270,53 +203,6 @@ lending_protocol/
     └── init-arcium.ts              # Initialize Arcium comp defs
 ```
 
-## 🔧 Technical Implementation
-
-### Encrypted Health Check
-
-```rust
-// encrypted-ixs/src/check_health_factor.arcis
-pub fn check_health_factor(
-    input_ctxt: Enc<Shared, HealthCheckInput>
-) -> Enc<Shared, bool> {
-    let input = input_ctxt.to_arcis();
-
-    // Calculate max borrow based on collateral and 80% LTV
-    let max_borrow = (input.collateral * 80) / 100;
-
-    // Check if new total borrow is within limits
-    let is_healthy = input.borrow_amount <= max_borrow;
-
-    input_ctxt.owner.from_arcis(is_healthy)
-}
-```
-
-### Frontend Integration
-
-```typescript
-// Initialize encryption with Arcium MXE
-const keys = await initializeEncryption(provider, PROGRAM_ID);
-
-// Encrypt sensitive data
-const plaintext = [collateralLamports, borrowAmountLamports];
-const ciphertext = keys.cipher.encrypt(plaintext, nonce);
-
-// Submit to Arcium for private computation
-await program.methods
-  .borrow(
-    computationOffset,
-    borrowAmount,
-    encryptedCollateral,
-    encryptedBorrow,
-    keys.publicKey,
-    nonce
-  )
-  .accountsPartial({
-    /* Arcium accounts */
-  })
-  .rpc();
-```
-
 ## ⚠️ Current Limitations
 
 ### Devnet DKG Issue (Temporary)
@@ -360,15 +246,9 @@ Error Message: "The MXE keys are not set, i.e. not all the nodes
 - ✅ Computation account derivation
 - ⏳ **Encrypted computations** (waiting for devnet DKG)
 
-#### Resolution Timeline
-
-**Immediate**: Works on Arcium localnet (with active nodes)  
-**Short-term**: Waiting for Arcium team to run DKG on devnet clusters  
-**Production**: Will work on mainnet with active Arcium operators
-
 #### For Bounty Judges
 
-This is an **infrastructure availability issue**, not a code implementation issue. The protocol:
+We believe this is an **infrastructure availability issue**, not a code implementation issue. The protocol:
 
 1. **Demonstrates full Arcium integration** (SDK, encryption, account derivation)
 2. **Has production-ready architecture** (separated layers, proper error handling)
@@ -377,7 +257,7 @@ This is an **infrastructure availability issue**, not a code implementation issu
 
 The missing piece is simply active Arcium MPC nodes on devnet—once available, the protocol will work end-to-end without code changes.
 
-## 🛠️ Setup & Installation
+## 🛠️ Running the dApp
 
 ### Prerequisites
 
@@ -401,31 +281,10 @@ cd arcium-lending-protocol
 
 ```bash
 cd lending_protocol
-npm install
-anchor build
+yarn install
 ```
 
-### 3. Build Encrypted Instructions
-
-```bash
-cargo build-sbf --manifest-path=encrypted-ixs/Cargo.toml
-```
-
-### 4. Deploy to Devnet
-
-```bash
-anchor deploy --provider.cluster devnet
-```
-
-Update `frontend/.env.local` with your program ID.
-
-### 5. Initialize Arcium Computation Definitions
-
-```bash
-npx ts-node migrations/init-arcium.ts
-```
-
-### 6. Run Frontend
+### 3. Run Frontend
 
 ```bash
 cd frontend
@@ -439,10 +298,10 @@ Visit `http://localhost:3000`
 
 ```bash
 # Run integration tests (requires localnet)
-anchor test
+arcium test
 
 # For devnet testing (once DKG completes)
-anchor test --provider.cluster devnet
+arcium test --provider.cluster devnet
 ```
 
 ## 📊 Demo Flow
@@ -476,10 +335,6 @@ anchor test --provider.cluster devnet
 - Repay borrowed amount
 - Withdraw collateral
 
-## 🎥 Video Demo
-
-[Link to video demonstration showing the full architecture and implementation]
-
 ## 📄 Smart Contract Verification
 
 **Program ID**: `AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA`  
@@ -495,6 +350,8 @@ anchor test --provider.cluster devnet
 - [ ] Governance for parameter updates
 - [ ] Oracle price feeds integration
 - [ ] Mobile app
+- [ ] A platform specific token
+- [ ] Online gaming Incentives
 
 ## 📚 Resources
 
