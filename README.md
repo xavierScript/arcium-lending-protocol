@@ -6,6 +6,10 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 [![Arcium](https://img.shields.io/badge/Arcium-v0.4.0-blue)](https://arcium.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**🌐 Live Demo:** [https://arcium-lending-protocol-kappa.vercel.app/](https://arcium-lending-protocol-kappa.vercel.app/)
+
+**📜 Smart Contract (Devnet):** [View on Solana Explorer](https://explorer.solana.com/address/AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA?cluster=devnet)
+
 ---
 
 ## 📋 Software Development Lifecycle
@@ -107,8 +111,8 @@ _(Detailed technical implementation covered in Architecture section below)_
 
 - **Program ID:** `AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA`
 - **Network:** Solana Devnet
-- **Frontend:** [Deployed at your hosting URL]
-- **Explorer:** [View on Solana Explorer](https://explorer.solana.com/address/AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA?cluster=devnet)
+- **Frontend:** [https://arcium-lending-protocol-kappa.vercel.app/](https://arcium-lending-protocol-kappa.vercel.app/)
+- **Smart Contract:** [View on Solana Explorer](https://explorer.solana.com/address/AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA?cluster=devnet)
 - **Arcium Cluster:** Offset 768109697 (v0.4.0)
 
 **Deployment Status:**

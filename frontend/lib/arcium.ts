@@ -320,7 +320,7 @@ export async function waitForDKG(
 
 /**
  * Retry helper for MXE public key retrieval
- * Based on Arcium migration docs v0.2.0 recommendation
+ * Based on Arcium migration docs
  */
 export async function getMXEPublicKeyWithRetry(
   provider: AnchorProvider,

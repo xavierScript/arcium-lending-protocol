@@ -7,6 +7,7 @@
 [![Solana](https://img.shields.io/badge/Solana-Web3.js-purple)](https://solana.com)
 [![Arcium](https://img.shields.io/badge/Arcium-v0.4.0-green)](https://arcium.com)
 
+**Frontend:** `https://arcium-lending-protocol-kappa.vercel.app/`
 **Smart Contract:** `AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA` (Devnet)
 
 ---
@@ -22,6 +23,7 @@
 
 ### Production (Devnet)
 
+- ✅ **Frontend:** `https://arcium-lending-protocol-kappa.vercel.app/`
 - ✅ **Smart Contract:** `AmmiTwpa1ALMmF5R23kUBHe3oocVKcErRmvvAyGUuZMA`
 - ✅ **Public Operations:** Deposit, withdraw, repay fully functional
 - ⏳ **Encrypted Borrow:** Pending Arcium devnet DKG completion (see limitations)

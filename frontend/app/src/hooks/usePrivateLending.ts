@@ -1304,7 +1304,7 @@ export function usePrivateLending() {
       setLoading(true);
       const signature = await connection.requestAirdrop(
         wallet.publicKey,
-        2 * LAMPORTS_PER_SOL
+        1 * LAMPORTS_PER_SOL
       );
 
       await connection.confirmTransaction(signature);
@@ -1312,6 +1312,20 @@ export function usePrivateLending() {
       return { success: true, signature };
     } catch (error: any) {
       console.error("Error requesting airdrop:", error);
+
+      // Check for rate limit error
+      if (
+        error.message?.includes("Rate limit") ||
+        error.message?.includes("429") ||
+        error.message?.includes("-32403")
+      ) {
+        return {
+          success: false,
+          error:
+            "Devnet faucet limit reached (1 SOL/day). Use solana-faucet.com or QuickNode faucet instead.",
+        };
+      }
+
       return { success: false, error: error.message };
     } finally {
       setLoading(false);

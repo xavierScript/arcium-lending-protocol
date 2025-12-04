@@ -459,7 +459,7 @@ const ArciumPrivateLending = () => {
     }
 
     try {
-      showInfo("Requesting", "Requesting 2 SOL airdrop...");
+      showInfo("Requesting", "Requesting 1 SOL airdrop...");
       const result = await requestAirdrop();
 
       if (result.success) {
@@ -468,12 +468,16 @@ const ArciumPrivateLending = () => {
           : undefined;
         showSuccess(
           "Airdrop Successful!",
-          "Received 2 SOL",
+          "Received 1 SOL",
           explorerUrl,
           "View on Solana Explorer"
         );
       } else {
-        showError("Airdrop Failed", result.error || "Transaction failed");
+        showError(
+          "Airdrop Failed",
+          result.error ||
+            "Transaction failed. Try solana-faucet.com or QuickNode faucet."
+        );
       }
     } catch (error: any) {
       showError("Error", error.message || "An unexpected error occurred");
@@ -612,13 +616,18 @@ const ArciumPrivateLending = () => {
                       >
                         {loading ? "Initializing..." : "Initialize Account"}
                       </button>
-                      <button
-                        onClick={handleAirdrop}
-                        disabled={loading}
-                        className="px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
-                      >
-                        {loading ? "Requesting..." : "Airdrop 2 SOL"}
-                      </button>
+                      <div className="relative group">
+                        <button
+                          onClick={handleAirdrop}
+                          disabled={loading}
+                          className="px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
+                        >
+                          {loading ? "Requesting..." : "Get SOL"}
+                        </button>
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-2 bg-black/90 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          Limited to 1 SOL/day. Try solana-faucet.com
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
