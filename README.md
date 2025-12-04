@@ -14,7 +14,8 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 
 ## 🎥 Video Demo
 
-- Full demo walkthrough
+- Full demo walkthrough — click the thumbnail below:
+
   [![Video Demo](https://img.youtube.com/vi/nvp5XnGv81s/hqdefault.jpg)](https://youtu.be/nvp5XnGv81s)
 
 ## 📝 Technical Article
