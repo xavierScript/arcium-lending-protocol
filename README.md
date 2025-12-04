@@ -15,12 +15,12 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 ## 🎥 Video Demo
 
 - Full demo walkthrough
-  [https://youtu.be/nvp5XnGv81s]
+  [![Video Demo](https://img.youtube.com/vi/nvp5XnGv81s/hqdefault.jpg)](https://youtu.be/nvp5XnGv81s)
 
 ## 📝 Technical Article
 
 - Deep dive into what we built and how it works
-  [https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial]s
+  [![Read the Deep Dive Article](docs/images/medium-preview.png)](https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial)
 
 ---
 
@@ -49,13 +49,13 @@ Our research phase involved:
 
 **Figma Design Files:**
 
-- **UI/UX Mockups:**
+- **Slide 1:**
   ![Slide 1](docs/images/Presentation-1.png)
 
-- **User Flow Diagrams:**
+- **Slide 2:**
   ![Slide 2](docs/images/Presentation-2.png)
 
-- **Component Library:**
+- **Slide 3:**
   ![Slide 3](docs/images/Presentation-3.png)
 
 - **Architecture Diagram:**
