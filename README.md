@@ -210,7 +210,7 @@ lending_protocol/
 
 ## ⚠️ Current Limitations
 
-### Devnet DKG Issue 
+### Devnet DKG Issue
 
 **Status**: Implementation complete, pending Arcium devnet cluster infrastructure
 
@@ -237,7 +237,7 @@ Error Message: "The MXE keys are not set, i.e. not all the nodes
 ✅ **All integration code is correct**: Follows Arcium documentation patterns  
 ✅ **Proper account derivation**: MXE, comp defs, cluster accounts all correctly derived  
 ✅ **Encryption logic works**: x25519 key exchange, Rescue cipher implementation  
-✅ **Transaction reaches Arcium**: Borrow transactions consistently failed at the queue_computation step with error 0x1772 (MxeKeysNotSet). 
+✅ **Transaction reaches Arcium**: Borrow transactions consistently failed at the queue_computation step with error 0x1772 (MxeKeysNotSet).
 
 #### What Works
 
@@ -297,16 +297,6 @@ npm run dev
 ```
 
 Visit `http://localhost:3000`
-
-## 🧪 Testing
-
-```bash
-# Run integration tests (requires localnet)
-arcium test
-
-# For devnet testing (once DKG completes)
-arcium test --provider.cluster devnet
-```
 
 ## 📊 Demo Flow
 
