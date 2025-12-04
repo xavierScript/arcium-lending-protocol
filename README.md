@@ -4,7 +4,6 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 
 [![Solana](https://img.shields.io/badge/Solana-Devnet-purple)](https://solana.com)
 [![Arcium](https://img.shields.io/badge/Arcium-v0.4.0-blue)](https://arcium.com)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **🌐 Live Demo:** [https://arcium-lending-protocol-kappa.vercel.app/](https://arcium-lending-protocol-kappa.vercel.app/)
 
@@ -211,11 +210,11 @@ lending_protocol/
 
 ## ⚠️ Current Limitations
 
-### Devnet DKG Issue (Temporary)
+### Devnet DKG Issue 
 
-**Status**: Implementation complete, pending Arcium devnet infrastructure
+**Status**: Implementation complete, pending Arcium devnet cluster infrastructure
 
-The protocol is **fully implemented and functional** but currently cannot execute on Solana devnet due to an external infrastructure limitation:
+The protocol is **fully implemented and functional** but currently, the borrow computation and instruction, cannot execute on Solana devnet due to an external infrastructure limitation (all other instructions work):
 
 #### Issue
 
@@ -238,8 +237,7 @@ Error Message: "The MXE keys are not set, i.e. not all the nodes
 ✅ **All integration code is correct**: Follows Arcium documentation patterns  
 ✅ **Proper account derivation**: MXE, comp defs, cluster accounts all correctly derived  
 ✅ **Encryption logic works**: x25519 key exchange, Rescue cipher implementation  
-✅ **Transaction reaches Arcium**: Error comes from Arcium program (proves integration)  
-✅ **Architecture is sound**: Two-step borrow flow properly separates computation from execution
+✅ **Transaction reaches Arcium**: Borrow transactions consistently failed at the queue_computation step with error 0x1772 (MxeKeysNotSet). 
 
 #### What Works
 
