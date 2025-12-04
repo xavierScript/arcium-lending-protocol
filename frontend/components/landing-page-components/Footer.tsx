@@ -37,7 +37,7 @@ export const Footer = () => {
                     <Twitter className="w-5 h-5" />
                   </a>
                   <a
-                    href="#"
+                    href="https://github.com/xavierScript/arcium-lending-protocol#"
                     className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#00ff9d]/20 hover:text-[#00ff9d] hover:border-[#00ff9d]/30 transition-all"
                   >
                     <Github className="w-5 h-5" />
@@ -55,32 +55,11 @@ export const Footer = () => {
                 <h4 className="text-white font-bold mb-6 text-lg">Protocol</h4>
                 <ul className="space-y-4">
                   <li>
-                    <Link
-                      href="#"
-                      className="text-gray-400 hover:text-[#00ff9d] transition-colors"
-                    >
-                      Markets
-                    </Link>
+                 
                   </li>
                   <li>
                     <Link
-                      href="#"
-                      className="text-gray-400 hover:text-[#00ff9d] transition-colors"
-                    >
-                      Governance
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="#"
-                      className="text-gray-400 hover:text-[#00ff9d] transition-colors"
-                    >
-                      Developers
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="#"
+                      href="https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7"
                       className="text-gray-400 hover:text-[#00ff9d] transition-colors"
                     >
                       Docs

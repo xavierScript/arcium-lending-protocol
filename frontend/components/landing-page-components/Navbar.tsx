@@ -27,7 +27,7 @@ export const Navbar = () => {
         {/* CTA & Mobile Toggle */}
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" href="https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7">
               Documentation
             </Button>
             <Button variant="primary" size="sm" href="/dashboard">
