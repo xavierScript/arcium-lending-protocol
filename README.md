@@ -20,8 +20,8 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 
 ## 📝 Technical Article
 
-- Deep dive into what we built and how it works
-  [![Read the Deep Dive Article](docs/images/medium-preview.png)](https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial)
+- Deep dive into what we built and how it works:  
+  **➡️ [Read the Deep Dive Article](https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial)**
 
 ---
 
