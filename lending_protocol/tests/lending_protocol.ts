@@ -75,7 +75,7 @@ describe("Private Lending Protocol", () => {
   let publicKey: Uint8Array;
   let privateKey: Uint8Array;
 
-  before(async () => {
+  it("Initialize computation definitions and setup", async () => {
     owner = readKpJson(`${os.homedir()}/.config/solana/id.json`);
 
     // Derive PDAs
@@ -91,9 +91,7 @@ describe("Private Lending Protocol", () => {
 
     console.log("User PDA:", userAccountPda.toString());
     console.log("Vault PDA:", vaultPda.toString());
-  });
 
-  it("Initialize computation definitions", async () => {
     console.log("\n🔧 Initializing health check computation definition...");
     const healthCheckSig = await initHealthCheckCompDef(
       program,
@@ -402,6 +400,8 @@ describe("Private Lending Protocol", () => {
       getArciumProgAddress()
     )[0];
 
+    console.log("Health check comp def PDA:", compDefPDA.toString());
+
     const sig = await program.methods
       .initHealthCheckCompDef()
       .accounts({
@@ -411,6 +411,8 @@ describe("Private Lending Protocol", () => {
       })
       .signers([owner])
       .rpc({ commitment: "confirmed" });
+
+    console.log("Init health check computation definition transaction:", sig);
 
     if (uploadRawCircuit) {
       const rawCircuit = fs.readFileSync("build/check_health_factor.arcis");
@@ -427,10 +429,13 @@ describe("Private Lending Protocol", () => {
         Buffer.from(offset).readUInt32LE(),
         program.programId
       );
+
       const latestBlockhash = await provider.connection.getLatestBlockhash();
       finalizeTx.recentBlockhash = latestBlockhash.blockhash;
       finalizeTx.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
+
       finalizeTx.sign(owner);
+
       await provider.sendAndConfirm(finalizeTx);
     }
     return sig;
@@ -452,6 +457,8 @@ describe("Private Lending Protocol", () => {
       getArciumProgAddress()
     )[0];
 
+    console.log("Liquidation comp def PDA:", compDefPDA.toString());
+
     const sig = await program.methods
       .initLiquidationCompDef()
       .accounts({
@@ -461,6 +468,8 @@ describe("Private Lending Protocol", () => {
       })
       .signers([owner])
       .rpc({ commitment: "confirmed" });
+
+    console.log("Init liquidation computation definition transaction:", sig);
 
     if (uploadRawCircuit) {
       const rawCircuit = fs.readFileSync("build/check_liquidation.arcis");
@@ -477,14 +486,18 @@ describe("Private Lending Protocol", () => {
         Buffer.from(offset).readUInt32LE(),
         program.programId
       );
+
       const latestBlockhash = await provider.connection.getLatestBlockhash();
       finalizeTx.recentBlockhash = latestBlockhash.blockhash;
       finalizeTx.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
+
       finalizeTx.sign(owner);
+
       await provider.sendAndConfirm(finalizeTx);
     }
     return sig;
   }
+
   async function getMXEPublicKeyWithRetry(
     provider: anchor.AnchorProvider,
     programId: PublicKey,
@@ -511,6 +524,7 @@ describe("Private Lending Protocol", () => {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
     }
+
     throw new Error(
       `Failed to fetch MXE public key after ${maxRetries} attempts`
     );
