@@ -23,6 +23,11 @@ A confidential lending protocol built on Solana using Arcium's Multi-Party Compu
 - Deep dive into what we built and how it works:  
   **➡️ [Read the Deep Dive Article](https://medium.com/@successosas006/privacy-beyond-defis-baptism-of-fire-0331f7d89af7?postPublishedType=initial)**
 
+## 💻 Social Media
+
+- Follow our updates and progress on X:  
+  **➡️ [X (Twitter) Page](https://x.com/zypherkredit)**
+
 ---
 
 ## 📋 Software Development Lifecycle
